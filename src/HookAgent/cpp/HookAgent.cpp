@@ -171,9 +171,12 @@ namespace com_levin_commons_plugins {
             pwd = readFile(pwdFileName);
 
             if (pwd.empty() || pwd.find_first_of(INVALID_PWD_PREFIX) != string::npos) {
-                pwd ="";
-                cout << "pwd file " << current_working_directory() << "/" << pwdFileName << " not exist or empty."
-                     << endl;
+
+                cout << "pwd file " << current_working_directory() << "/" << pwdFileName << " not exist or invalid. "
+                     << pwd << endl;;
+
+                pwd = "";
+
             } else {
                 //覆盖密码文件内容
                 overwriteFile(pwdFileName, string(INVALID_PWD_PREFIX) + "#pwd already read.");
