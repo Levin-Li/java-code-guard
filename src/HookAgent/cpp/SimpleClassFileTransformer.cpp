@@ -30,17 +30,12 @@ namespace com_levin_commons_plugins {
 
         jbyteArray
         SimpleClassFileTransformer::transform1(JNIEnv *env, jobject javaThis, jstring password, jbyteArray data) {
-
-            return HookAgent::aesCrypt(env, javaThis, JNI_TRUE, data);
-
+            return HookAgent::aesCrypt(env, javaThis, JNI_TRUE, JNI_TRUE, data);
         }
 
         jbyteArray
         SimpleClassFileTransformer::transform2(JNIEnv *env, jobject javaThis, jstring password, jbyteArray data) {
-
-            JavaString pwd(HookAgent::readPwd() +"" +password);
-
-            return HookAgent::aesCrypt(env, javaThis, 192, JNI_TRUE, pwd.toJavaString(env).leak(), data);
+            return HookAgent::aesCrypt(env, javaThis, JNI_TRUE, JNI_FALSE, data);
         }
 
         /**
@@ -69,12 +64,12 @@ namespace com_levin_commons_plugins {
 
         jbyteArray
         SimpleClassFileTransformer::decryptAes(JNIEnv *env, jobject javaThis, jstring password, jbyteArray data) {
-            return HookAgent::aesCrypt(env, javaThis, 128, JNI_FALSE, password, data);
+            return HookAgent::aesCrypt(env, javaThis, 128, JNI_FALSE, password, NULL, data);
         }
 
         jbyteArray
         SimpleClassFileTransformer::encryptAes(JNIEnv *env, jobject javaThis, jstring password, jbyteArray data) {
-            return HookAgent::aesCrypt(env, javaThis, 128, JNI_TRUE, password, data);
+            return HookAgent::aesCrypt(env, javaThis, 128, JNI_TRUE, password, NULL, data);
         }
 
     }

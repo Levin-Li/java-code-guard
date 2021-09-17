@@ -35,7 +35,6 @@ namespace com_levin_commons_plugins {
 
             static jbyteArray transform2(JNIEnv *env, jobject javaThis, jstring password, jbyteArray data);
 
-
             static jbyteArray encryptAes(JNIEnv *env, jobject javaThis, jstring password, jbyteArray data);
 
             static jbyteArray decryptAes(JNIEnv *env, jobject javaThis, jstring password, jbyteArray data);

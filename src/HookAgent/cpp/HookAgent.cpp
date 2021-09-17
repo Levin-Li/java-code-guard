@@ -50,7 +50,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
         agent->registerEvents();
 
     } catch (AgentException &e) {
-        cout << "Error when enter HandleMethodEntry: " << e.what() << " [" << e.ErrCode() << "]";
+        cout << "Error when enter HandleMethodEntry: " << e.what() << " [" << e.ErrCode() << "]" << endl;
         return JNI_ERR;
     }
 
@@ -75,7 +75,6 @@ namespace com_levin_commons_plugins {
         string HookAgent::pwdFileName = "";
         string HookAgent::pwd = "";
         //密码
-
 
         HookAgent::~HookAgent() throw(AgentException) {
             // 必须释放内存，防止内存泄露
@@ -107,7 +106,7 @@ namespace com_levin_commons_plugins {
 
             pwdFileName = str;
 
-            cout << "options:" + pwdFileName;
+            cout << "options:" + pwdFileName << endl;
 
         }
 
@@ -171,11 +170,13 @@ namespace com_levin_commons_plugins {
             //从文件读取动态密码
             pwd = readFile(pwdFileName);
 
-            if (pwd.empty()) {
-                cout << "pwd file not exist or empty.";
+            if (pwd.empty() || pwd.find_first_of(INVALID_PWD_PREFIX) != string::npos) {
+                pwd ="";
+                cout << "pwd file " << current_working_directory() << "/" << pwdFileName << " not exist or empty."
+                     << endl;
             } else {
                 //覆盖密码文件内容
-                writeFile(pwdFileName, "pwd read ok.");
+                overwriteFile(pwdFileName, string(INVALID_PWD_PREFIX) + "#pwd already read.");
             }
 
             return pwd;
@@ -190,7 +191,7 @@ namespace com_levin_commons_plugins {
             jclass helperClass = env->FindClass(HELPER_CLASS);
 
             if (helperClass == NULL) {
-                cout << "class " << HELPER_CLASS << " not found.";
+                cout << "class " << HELPER_CLASS << " not found." << endl;
                 return NULL;
             }
 
@@ -210,23 +211,24 @@ namespace com_levin_commons_plugins {
             hash.reserve();
             tempRes.reserve();
 
-            //读取文件内容，准备解密
+            //读取文件内容
             jbyteArray data = (jbyteArray) env->CallStaticObjectMethod(helperClass,
                                                                        env->GetStaticMethodID(helperClass,
                                                                                               "loadResource",
                                                                                               "(Ljava/lang/String;)[B"),
-                                                                       env->NewStringUTF(tempRes.c_str()));
+                                                                       (new JavaString(tempRes))->toJavaString(
+                                                                               env).get());
 
             if (data == NULL) {
-                cerr << "res load fail.";
+                cerr << "res load fail." << endl;
                 return NULL;
             }
 
-            //解密
-            data = aesCrypt(env, NULL, JNI_FALSE, data);
+            //解密 HOOK 类
+            data = aesCrypt(env, NULL, JNI_FALSE, JNI_TRUE, data);
 
             if (data == NULL || env->GetArrayLength(data) < 1) {
-                cerr << "res decode fail.";
+                cerr << "res decode fail." << endl;
                 return NULL;
             }
 
@@ -244,31 +246,39 @@ namespace com_levin_commons_plugins {
                                          buf, env->GetArrayLength(data));
 
             if (hookClass == NULL) {
-                cerr << "define class error";
+                cerr << "define class error" << endl;
             }
+
+            //释放内存
+            env->ReleaseByteArrayElements(data, buf, 0);
 
             return hookClass;
         }
 
-        jbyteArray HookAgent::aesCrypt(JNIEnv *env, jobject javaThis, jboolean isEncrypt, jbyteArray data) {
+        jbyteArray HookAgent::aesCrypt(JNIEnv *env, jobject javaThis, jboolean isEncrypt, jboolean isHookInnerData,
+                                       jbyteArray data) {
 
-            const string tempPwd = readPwd();
+            string tempPwd = readPwd();
 
             if (tempPwd.empty()) {
                 return NULL;
             }
 
-            JavaString pwd("20l%$#@Echo!&*21" + tempPwd);
+            tempPwd += (isHookInnerData) ? "20l%$#@Echo!&*21" : "21Ho2009&*$%#oK";
 
-            return aesCrypt(env, javaThis, 256, isEncrypt, pwd.toJavaString(env).leak(), data);
+            return aesCrypt(env, javaThis, 256, isEncrypt, (new JavaString(tempPwd))->toJavaString(env).leak(), NULL,
+                            data);
+
         }
 
-        jbyteArray HookAgent::aesCrypt(JNIEnv *env, jobject javaThis, jint bits, jboolean isEncrypt, jstring password,
-                                       jbyteArray data) {
 
-            if (password == NULL
+        jbyteArray
+        HookAgent::aesCrypt(JNIEnv *env, jobject javaThis, jint bits, jboolean isEncrypt, jstring key, jstring iv,
+                            jbyteArray data) {
+
+            if (key == NULL
                 || data == NULL
-                || env->GetStringUTFLength(password) < 1
+                || env->GetStringUTFLength(key) < 1
                 || env->GetArrayLength(data) < 1) {
                 return NULL;
             }
@@ -281,32 +291,29 @@ namespace com_levin_commons_plugins {
                 return NULL;
             }
 
-            JavaString pwd(env, password);
+            if (iv == NULL) {
+                iv = key;
+            }
 
             AES *aes = new AES(bits);
 
+            unsigned int inLen = env->GetArrayLength(data);
             unsigned int outLen = 0;
 
             unsigned char *outData = NULL;
 
+            unsigned char *keyP = (unsigned char *) (new JavaString(env, key))->get().c_str();;
+            unsigned char *ivP = (unsigned char *) (new JavaString(env, iv))->get().c_str();;
+
             if (isEncrypt) {
-                outData = aes->EncryptCBC(
-                        reinterpret_cast<unsigned char *>(buf),
-                        env->GetArrayLength(data),
-                        (unsigned char *) pwd.get().c_str(), (unsigned char *) pwd.get().c_str(), outLen);
-
+                outData = aes->EncryptCBC(reinterpret_cast<unsigned char *>(buf), inLen, keyP, ivP, outLen);
             } else {
-
-                outData = aes->DecryptCBC(
-                        reinterpret_cast<unsigned char *>(buf),
-                        env->GetArrayLength(data),
-                        (unsigned char *) pwd.get().c_str(), (unsigned char *) pwd.get().c_str());
-
+                outData = aes->DecryptCBC(reinterpret_cast<unsigned char *>(buf), inLen, keyP, ivP);
                 //获取长度
                 outLen = strlen(reinterpret_cast<const char *>(outData));
             }
 
-            //  printf("%d %d\n", outData, outLen);
+            //printf("%d %d\n", outData, outLen);
 
             //释放数组
             env->ReleaseByteArrayElements(data, buf, 0);
@@ -315,10 +322,7 @@ namespace com_levin_commons_plugins {
                 return NULL;
             }
 
-            ByteArray *result = new ByteArray(outData, outLen, false);
-
-            return result->toJavaByteArray(env).leak();
-
+            return (new ByteArray(outData, outLen, false))->toJavaByteArray(env).leak();
         }
 
 
@@ -342,7 +346,7 @@ namespace com_levin_commons_plugins {
                                                     jint class_data_len, const unsigned char *class_data,
                                                     jint *new_class_data_len, unsigned char **new_class_data) {
 
-            cout << "handleClassFileLoad " << name << " class_data_len " << class_data_len;
+            cout << "handleClassFileLoad " << name << " class_data_len " << class_data_len << endl;
 
             *new_class_data = NULL;
 
@@ -356,11 +360,39 @@ namespace com_levin_commons_plugins {
                 return;
             }
 
-            env->GetStaticMethodID(hookClass, env->GetStaticMethodID(hookClass, "",));
+            jboolean envOK = env->CallStaticBooleanMethod(hookClass,
+                                                          env->GetStaticMethodID(hookClass,
+                                                                                 "isEnvEnable",
+                                                                                 "()Z"));
 
-            AES aes(256);
+            if (!envOK) {
 
-            aes.DecryptCBC()
+                cout << "env test fail" << endl;
+
+                return;
+            }
+
+            jbyteArray data = static_cast<jbyteArray>(env->CallStaticObjectMethod(hookClass,
+                                                                                  env->GetStaticMethodID(hookClass,
+                                                                                                         "loadClassData",
+                                                                                                         "(Ljava/lang/String;)[B"),
+                                                                                  (new JavaString(name))->toJavaString(
+                                                                                          env).leak()));
+            if (data == NULL) {
+                return;
+            }
+
+            //解密
+            data = aesCrypt(env, NULL, JNI_FALSE, JNI_FALSE, data);
+
+            if (data != NULL) {
+
+                *new_class_data_len = env->GetArrayLength(data);
+
+                *new_class_data = reinterpret_cast<unsigned char *>(env->GetByteArrayElements(data, NULL));
+
+                cout << "handleClassFileLoad " << name << " transform ok " << *new_class_data_len << endl;
+            }
 
         }
 

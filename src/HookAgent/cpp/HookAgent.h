@@ -6,6 +6,8 @@
 #include <fstream>
 #include <iosfwd>
 
+#import<filesystem>
+
 #include "jvmti.h"
 #include "jni.h"
 #include "AES.h"
@@ -31,6 +33,16 @@
 //extern int a;//声明
 //extern int a =0 ;//定义
 
+
+#if defined(_MSC_VER)
+#include <direct.h>
+#define GetCurrentDir _getcwd
+#else
+//#elif defined(__unix__)
+#include <unistd.h>
+
+#define GetCurrentDir getcwd
+#endif
 
 
 //包名定义
@@ -87,7 +99,7 @@ namespace com_levin_commons_plugins {
             }
 
             char *what() const throw() {
-                return "AgentException";
+                return ("AgentException");
             }
 
             jvmtiError ErrCode() const throw() {
@@ -100,6 +112,9 @@ namespace com_levin_commons_plugins {
 
 
         class HookAgent {
+
+        #define INVALID_PWD_PREFIX "#INVALID_PWD:"
+
         public:
 
             HookAgent() throw(AgentException) {}
@@ -116,12 +131,14 @@ namespace com_levin_commons_plugins {
 
             static string readPwd();
 
+            static jbyteArray
+            aesCrypt(JNIEnv *env, jobject javaThis, jboolean isEncrypt, jboolean isHookInnerData, jbyteArray data);
 
 
             static jbyteArray
-            aesCrypt(JNIEnv *env, jobject javaThis, jint bits, jboolean isEncrypt, jstring password, jbyteArray data);
+            aesCrypt(JNIEnv *env, jobject javaThis, jint bits, jboolean isEncrypt, jstring key, jstring iv,
+                     jbyteArray data);
 
-            static jbyteArray aesCrypt(JNIEnv *env, jobject javaThis, jboolean isEncrypt, jbyteArray data);
 
             static void JNICALL handleException(jvmtiEnv *jvmti_env,
                                                 JNIEnv *env,
@@ -213,18 +230,20 @@ namespace com_levin_commons_plugins {
                 }
 
                 istreambuf_iterator<char> begin(is), end;
+
                 string content(begin, end);
+
                 is.close();
 
                 return content;
             }
 
             /**
-             *
+             * 覆盖文件内容
              * @param filename
              * @param content
              */
-            static void writeFile(const string &filename, const string &content) {
+            static void overwriteFile(const string &filename, const string &content) {
 
                 ofstream os(filename, ios::trunc);
 
@@ -247,6 +266,13 @@ namespace com_levin_commons_plugins {
                 if (error != JVMTI_ERROR_NONE) {
                     throw AgentException(error);
                 }
+            }
+
+            static std::string current_working_directory() {
+                char buff[512];
+                GetCurrentDir(buff, 512);
+                std::string current_working_directory(buff);
+                return current_working_directory;
             }
 
             static jvmtiEnv *jvmti_env;
