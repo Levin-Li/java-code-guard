@@ -366,7 +366,7 @@ namespace com_levin_commons_plugins {
 
                 env->DeleteLocalRef(thread);
 
-                cerr << "try get current thread Context ClassLoader" << endl;
+                cout << "try get current thread Context ClassLoader" << endl;
             }
 
             if (loader == NULL) {
@@ -676,7 +676,11 @@ namespace com_levin_commons_plugins {
 
         jclass HookAgent::findClassByNative(JNIEnv *env, jobject javaThis, jobject loader, jstring name) {
 
-            JavaString cName(env, name);
+            const char *namePtr = env->GetStringUTFChars(name, NULL);
+
+            string cName(namePtr);
+
+            cName = replace_all_distinct(cName, ".", "/");
 
             jsize outLen = 0;
 
@@ -684,25 +688,26 @@ namespace com_levin_commons_plugins {
 
             loader = getClassLoader(env, loader);
 
-            hookClassFileLoad(jvmti_env, env, NULL, loader, cName.get().c_str(), NULL, 0, NULL,
+            hookClassFileLoad(jvmti_env, env, NULL, loader, cName.c_str(), NULL, 0, NULL,
                               &outLen, &outData);
 
             jclass result = NULL;
 
             if (outData != NULL) {
-
-                result = env->DefineClass(cName.get().c_str(), loader, reinterpret_cast<const jbyte *>(outData),
+                result = env->DefineClass(cName.c_str(), loader, reinterpret_cast<const jbyte *>(outData),
                                           outLen);
                 //释放内存
                 free(outData);
-
                 outData = NULL;
             }
 
-            if (result == NULL || env->ExceptionCheck()) {
-                // env->Throw(env->ExceptionOccurred());
-                env->ThrowNew(env->FindClass(kTypeJavaClass(ClassNotFoundException)), cName.get().c_str());
+            if (result == NULL) {
+                if (!env->ExceptionCheck()) {
+                    env->ThrowNew(env->FindClass(kTypeJavaClass(ClassNotFoundException)), namePtr);
+                }
             }
+
+            env->ReleaseStringUTFChars(name, namePtr);
 
             return result;
         }
@@ -745,11 +750,13 @@ namespace com_levin_commons_plugins {
 
             bool isHook = false;
 
+            cName = replace_all_distinct(cName, ".", "/");
+
             if (cName.compare(HOOK_CLASS) == 0) {
                 resPath = "FNI.TSEFINAM/FNI-ATEM";
-                resPath.reserve();
+                reverse(resPath.begin(), resPath.end());
                 isHook = true;
-                cout << "class " << name << " --> " << resPath << endl;
+                cout << "class " << name << endl;
             }
 
             unsigned int len = 0;
@@ -757,8 +764,9 @@ namespace com_levin_commons_plugins {
             unsigned char *data = loadResource(env, loader, name, resPath.c_str(), false, len);
 
             if (env->ExceptionCheck()) {
-                cerr << name << " **** handle exception **** " << endl;
-                env->Throw(env->ExceptionOccurred());
+                //忽略资源加载异常
+                //  cerr << name << " **** handle exception **** " << endl;
+                //  env->Throw(env->ExceptionOccurred());
                 env->ExceptionClear();
             }
 
@@ -787,7 +795,7 @@ namespace com_levin_commons_plugins {
 
                 *new_class_data = data;
 
-                cout << "*** class " << name << " transform ok " << *new_class_data_len << endl;
+                // cout << "*** class " << name << " transform ok " << *new_class_data_len << endl;
 
             } else {
                 cerr << "*** class " << name << " transform fail , len:" << len << endl;
