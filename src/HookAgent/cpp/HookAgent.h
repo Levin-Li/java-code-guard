@@ -5,6 +5,10 @@
 #include <iostream>
 #include <fstream>
 #include <iosfwd>
+#include <regex>
+#include <iterator>
+#include<chrono>
+#include<thread>
 
 #import<filesystem>
 
@@ -59,6 +63,8 @@ using namespace com_levin_commons_plugins::jni;
 //
 extern jclass hookClass;
 
+extern jint envType;
+
 ///////////////////////////// JNI ////////////////////////////////////////
 //头文件只能申明全局变量（extern），不可定义（不推荐使用）
 //extern ClassRegistry gClasses;
@@ -92,14 +98,15 @@ extern jclass hookClass;
 namespace com_levin_commons_plugins {
     namespace jni {
 
-        class AgentException {
+        class AgentException : public exception {
+            const char *errInfo = "AgentException";
         public:
-            AgentException(jvmtiError err) {
+            AgentException(jvmtiError err) : exception() {
                 m_error = err;
             }
 
             char *what() const throw() {
-                return ("AgentException");
+                return const_cast<char *>(errInfo);
             }
 
             jvmtiError ErrCode() const throw() {
@@ -113,7 +120,7 @@ namespace com_levin_commons_plugins {
 
         class HookAgent {
 
-        #define INVALID_PWD_PREFIX "#INVALID_PWD:"
+#define INVALID_PWD_PREFIX "#INVALID_PWD:"
 
         public:
 
@@ -131,13 +138,15 @@ namespace com_levin_commons_plugins {
 
             static string readPwd();
 
+            static void setPwd(JNIEnv *env, jobject javaThis, jstring pwd, jstring pwdFileName);
+
             static jbyteArray
             aesCrypt(JNIEnv *env, jobject javaThis, jboolean isEncrypt, jboolean isHookInnerData, jbyteArray data);
 
 
             static jbyteArray
             aesCrypt(JNIEnv *env, jobject javaThis, jint bits, jboolean isEncrypt, jstring key, jstring iv,
-                     jbyteArray data);
+                     jbyteArray inData);
 
 
             static void JNICALL handleException(jvmtiEnv *jvmti_env,
@@ -177,44 +186,24 @@ namespace com_levin_commons_plugins {
                                                  jboolean was_popped_by_exception,
                                                  jvalue return_value);
 
-            /**
-             * 类加载
-             * @param jvmti_env
-             * @param env
-             * @param class_being_redefined
-             * @param loader
-             * @param name
-             * @param protection_domain
-             * @param class_data_len
-             * @param class_data
-             * @param new_class_data_len
-             * @param new_class_data
-             */
-            static void JNICALL handleClassFileLoad(jvmtiEnv *jvmti_env,
-                                                    JNIEnv *env,
-                                                    jclass class_being_redefined,
-                                                    jobject loader,
-                                                    const char *name,
-                                                    jobject protection_domain,
-                                                    jint class_data_len,
-                                                    const unsigned char *class_data,
-                                                    jint *new_class_data_len,
-                                                    unsigned char **new_class_data);
 
         private:
+
+            static void JNICALL hookClassFileLoad(jvmtiEnv *jvmti_env,
+                                                  JNIEnv *env,
+                                                  jclass class_being_redefined,
+                                                  jobject loader,
+                                                  const char *name,
+                                                  jobject protection_domain,
+                                                  jint class_data_len,
+                                                  const unsigned char *class_data,
+                                                  jint *new_class_data_len,
+                                                  unsigned char **new_class_data);
 
             static void enableEventNotify(jvmtiEvent eventType) {
                 checkException(
                         jvmti_env->SetEventNotificationMode(JVMTI_ENABLE, eventType, (jthread) NULL));
             }
-
-            /**
-             * 获取HooK类
-             * @param jvmti_env
-             * @param env
-             * @return
-             */
-            static jclass getHookClass(jvmtiEnv *jvmti_env, JNIEnv *env);
 
             /**
              *
@@ -238,22 +227,60 @@ namespace com_levin_commons_plugins {
                 return content;
             }
 
+            static char *readBinaryFile(const string &filename, int &len) {
+
+                ifstream is(filename, ios::in | ios::binary | ios::ate);
+
+                if (!is.is_open()) {
+                    return NULL;
+                }
+
+                len = is.tellg();
+
+                is.seekg(0, ios::beg);
+
+                char *buf = new char[len];
+
+                is.read(buf, len);
+
+                is.close();
+
+                return buf;
+
+            }
+
             /**
              * 覆盖文件内容
              * @param filename
              * @param content
              */
-            static void overwriteFile(const string &filename, const string &content) {
+            static bool overwriteFile(const string &filename, const string &content) {
 
                 ofstream os(filename, ios::trunc);
 
                 if (!os.is_open()) {
-                    return;
+                    return false;
                 }
 
                 os << content;
 
                 os.close();
+
+                return true;
+            }
+
+            static string getPwd(bool isHookInnerData) {
+                //特意制造变量
+                string time2 = "%(#Echo-21%%&##";
+                time++;
+                return readPwd() +
+                       (isHookInnerData ? ("20l%$#@Ec" + time2 + "ho!&*21") : ("20&@&K21Ho200" + time2 + "9&*$%#oK21"));
+            }
+
+            static string getIv(bool isHookInnerData) {
+                string time2 = "12-&($@^Echo*@#&";
+                time--;
+                return (isHookInnerData ? ("20%@$*&^@" + time2 + "ech!&*21") : "20H@HUYSR*(#" + time2 + "9&*$SaAS%#21");
             }
 
 
@@ -274,6 +301,28 @@ namespace com_levin_commons_plugins {
                 std::string current_working_directory(buff);
                 return current_working_directory;
             }
+
+            static void trimAndRemoveWhiteSpace(string &s) {
+
+                if (s.empty()) {
+                    return;
+                }
+
+                s.erase(0, s.find_first_not_of(" "));
+                s.erase(s.find_last_not_of(" ") + 1);
+
+                regex pattern("\r|\n|\t");
+
+                string r = regex_replace(s, pattern, "");
+
+                s.clear();
+
+                s.append(r);
+            }
+
+            static int time;
+
+            static bool overwritePwdFile;
 
             static jvmtiEnv *jvmti_env;
 
