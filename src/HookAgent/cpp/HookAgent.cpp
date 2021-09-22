@@ -1,7 +1,7 @@
 
 #include "HookAgent.h"
 
-#include "SimpleClassFileTransformer.h"
+#include "SimpleLoaderAndTransformer.h"
 
 // 注意 jni 和 jvmti agent 的接口 都不允许在名称空间里面
 
@@ -53,7 +53,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved) {
         envType = 2;
     }
 
-    gClasses.add(env, new SimpleClassFileTransformer(env));
+    gClasses.add(env, new SimpleLoaderAndTransformer(env));
 
     cout << " JNI_OnLoad " << JAVA_VERSION << endl;
 
@@ -745,7 +745,6 @@ namespace com_levin_commons_plugins {
                                               (unsigned char *) getPwd(isHook).c_str(),
                                               (unsigned char *) getIv(isHook).c_str(), true,
                                               newLen);
-
             //释放内存
             free(data);
 

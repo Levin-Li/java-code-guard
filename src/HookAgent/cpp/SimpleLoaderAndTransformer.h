@@ -1,22 +1,22 @@
 #include "HookAgent.h"
 
-#ifndef __SimpleClassFileTransformer_h__
-#define __SimpleClassFileTransformer_h__
+#ifndef __SimpleLoaderAndTransformer_h__
+#define __SimpleLoaderAndTransformer_h__
 
 namespace com_levin_commons_plugins {
     namespace jni {
 
-        class SimpleClassFileTransformer : public JavaClass {
+        class SimpleLoaderAndTransformer : public JavaClass {
 
         public:
-            SimpleClassFileTransformer() : JavaClass() {}
+            SimpleLoaderAndTransformer() : JavaClass() {}
 
-            SimpleClassFileTransformer(JNIEnv *env) : JavaClass(env) { initialize(env); }
+            SimpleLoaderAndTransformer(JNIEnv *env) : JavaClass(env) { initialize(env); }
 
-            ~SimpleClassFileTransformer() {}
+            ~SimpleLoaderAndTransformer() {}
 
             const char *getCanonicalName() const {
-                return MAKE_CANONICAL_NAME(PACKAGE, SimpleClassFileTransformer);
+                return MAKE_CANONICAL_NAME(PACKAGE, SimpleLoaderAndTransformer);
             }
 
             void initialize(JNIEnv *env);
@@ -93,4 +93,4 @@ namespace com_levin_commons_plugins {
     }
 }
 
-#endif // __SimpleClassFileTransformer_h__
+#endif // __SimpleLoaderAndTransformer_h__

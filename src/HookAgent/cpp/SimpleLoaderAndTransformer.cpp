@@ -1,9 +1,9 @@
-#include "SimpleClassFileTransformer.h"
+#include "SimpleLoaderAndTransformer.h"
 
 namespace com_levin_commons_plugins {
     namespace jni {
 
-        void SimpleClassFileTransformer::initialize(JNIEnv *env) {
+        void SimpleLoaderAndTransformer::initialize(JNIEnv *env) {
 
             setClass(env);
 
@@ -34,22 +34,22 @@ namespace com_levin_commons_plugins {
         }
 
 
-        jint SimpleClassFileTransformer::getEnvType(JNIEnv *env, jobject javaThis) {
+        jint SimpleLoaderAndTransformer::getEnvType(JNIEnv *env, jobject javaThis) {
             return envType;
         }
 
-        void SimpleClassFileTransformer::setPwd(JNIEnv *env, jobject javaThis, jstring pwd, jstring pwdFileName) {
+        void SimpleLoaderAndTransformer::setPwd(JNIEnv *env, jobject javaThis, jstring pwd, jstring pwdFileName) {
             HookAgent::setPwd(env, javaThis, pwd, pwdFileName);
         }
 
 
         jbyteArray
-        SimpleClassFileTransformer::transform1(JNIEnv *env, jobject javaThis, jstring password, jbyteArray data) {
+        SimpleLoaderAndTransformer::transform1(JNIEnv *env, jobject javaThis, jstring password, jbyteArray data) {
             return HookAgent::aesCrypt(env, javaThis, JNI_TRUE, JNI_TRUE, data);
         }
 
         jbyteArray
-        SimpleClassFileTransformer::transform2(JNIEnv *env, jobject javaThis, jstring password, jbyteArray data) {
+        SimpleLoaderAndTransformer::transform2(JNIEnv *env, jobject javaThis, jstring password, jbyteArray data) {
             return HookAgent::aesCrypt(env, javaThis, JNI_TRUE, JNI_FALSE, data);
         }
 
@@ -65,7 +65,7 @@ namespace com_levin_commons_plugins {
          * @return
          */
         jbyteArray
-        SimpleClassFileTransformer::transform(JNIEnv *env, jobject javaThis, jobject classLoader, jstring className,
+        SimpleLoaderAndTransformer::transform(JNIEnv *env, jobject javaThis, jobject classLoader, jstring className,
                                               jclass classBeingRedefined, jobject domain, jbyteArray classBuffer) {
 
             if (className == NULL
@@ -84,13 +84,13 @@ namespace com_levin_commons_plugins {
         }
 
         jbyteArray
-        SimpleClassFileTransformer::decryptAes(JNIEnv *env, jobject javaThis, jint bits, jstring password,
+        SimpleLoaderAndTransformer::decryptAes(JNIEnv *env, jobject javaThis, jint bits, jstring password,
                                                jbyteArray data) {
             return HookAgent::aesCrypt(env, javaThis, bits, JNI_FALSE, password, NULL, data);
         }
 
         jbyteArray
-        SimpleClassFileTransformer::encryptAes(JNIEnv *env, jobject javaThis, jint bits, jstring password,
+        SimpleLoaderAndTransformer::encryptAes(JNIEnv *env, jobject javaThis, jint bits, jstring password,
                                                jbyteArray data) {
             return HookAgent::aesCrypt(env, javaThis, bits, JNI_TRUE, password, NULL, data);
         }
