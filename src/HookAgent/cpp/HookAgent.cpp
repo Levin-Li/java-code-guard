@@ -674,8 +674,40 @@ namespace com_levin_commons_plugins {
         }
 
 
-        void JNICALL HookAgent::handleMethodEntry(jvmtiEnv *jvmti_env, JNIEnv *env, jthread thread, jmethodID method) {
+        jclass HookAgent::findClassByNative(JNIEnv *env, jobject javaThis, jobject loader, jstring name) {
 
+            JavaString cName(env, name);
+
+            jsize outLen = 0;
+
+            unsigned char *outData = NULL;
+
+            loader = getClassLoader(env, loader);
+
+            hookClassFileLoad(jvmti_env, env, NULL, loader, cName.get().c_str(), NULL, 0, NULL,
+                              &outLen, &outData);
+
+            jclass result = NULL;
+
+            if (outData != NULL) {
+
+                result = env->DefineClass(cName.get().c_str(), loader, reinterpret_cast<const jbyte *>(outData),
+                                          outLen);
+                //释放内存
+                free(outData);
+
+                outData = NULL;
+            }
+
+            if (result == NULL || env->ExceptionCheck()) {
+                // env->Throw(env->ExceptionOccurred());
+                env->ThrowNew(env->FindClass(kTypeJavaClass(ClassNotFoundException)), cName.get().c_str());
+            }
+
+            return result;
+        }
+
+        void JNICALL HookAgent::handleMethodEntry(jvmtiEnv *jvmti_env, JNIEnv *env, jthread thread, jmethodID method) {
 
 
         }
@@ -717,7 +749,6 @@ namespace com_levin_commons_plugins {
                 resPath = "FNI.TSEFINAM/FNI-ATEM";
                 resPath.reserve();
                 isHook = true;
-
                 cout << "class " << name << " --> " << resPath << endl;
             }
 
@@ -758,7 +789,7 @@ namespace com_levin_commons_plugins {
 
                 cout << "*** class " << name << " transform ok " << *new_class_data_len << endl;
 
-            }else{
+            } else {
                 cerr << "*** class " << name << " transform fail , len:" << len << endl;
             }
 

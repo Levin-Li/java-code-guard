@@ -20,6 +20,9 @@ namespace com_levin_commons_plugins {
             addNativeMethod("transform2", (void *) transform2, kTypeArray(kTypeByte), kTypeString,
                             kTypeArray(kTypeByte), NULL);
 
+            addNativeMethod("findClassByNative", (void *) findClassByNative, kTypeJavaClass(Class),
+                            kTypeJavaClass(ClassLoader), kTypeString, NULL);
+
             addNativeMethod("transform", (void *) transform, kTypeArray(kTypeByte), kTypeJavaClass(ClassLoader),
                             kTypeString, kTypeJavaClass(Class), "java/security/ProtectionDomain", kTypeArray(kTypeByte),
                             NULL);
@@ -42,6 +45,10 @@ namespace com_levin_commons_plugins {
             HookAgent::setPwd(env, javaThis, pwd, pwdFileName);
         }
 
+        jclass
+        SimpleLoaderAndTransformer::findClassByNative(JNIEnv *env, jobject javaThis, jobject loader, jstring name) {
+            return HookAgent::findClassByNative(env, javaThis, loader, name);
+        }
 
         jbyteArray
         SimpleLoaderAndTransformer::transform1(JNIEnv *env, jobject javaThis, jstring password, jbyteArray data) {

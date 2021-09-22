@@ -23,9 +23,6 @@ namespace com_levin_commons_plugins {
 
             void mapFields() {}
 
-            // java 类中的方法
-            // public native byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined, ProtectionDomain domain, byte[] classBuffer) throws IllegalClassFormatException;
-
             /**
              * 设置密码
              * @param env
@@ -35,6 +32,16 @@ namespace com_levin_commons_plugins {
              */
             static void setPwd(JNIEnv *env, jobject javaThis, jstring pwd, jstring pwdFileName);
 
+
+            /**
+             *
+             * @param env
+             * @param javaThis
+             * @param name
+             * @return
+             */
+            static jclass findClassByNative(JNIEnv *env, jobject javaThis, jobject loader,jstring name);
+
             /**
              *
              * @param env
@@ -43,8 +50,18 @@ namespace com_levin_commons_plugins {
              */
             static jint getEnvType(JNIEnv *env, jobject javaThis);
 
-            //
-            //类文件转换
+
+            /**
+             *
+             * @param env
+             * @param javaThis
+             * @param classLoader
+             * @param className
+             * @param classBeingRedefined
+             * @param domain
+             * @param classBuffer
+             * @return
+             */
             static jbyteArray transform(JNIEnv *env, jobject javaThis, jobject classLoader, jstring className,
                                         jclass classBeingRedefined, jobject domain, jbyteArray classBuffer);
 
