@@ -148,7 +148,7 @@ namespace com_levin_commons_plugins {
             aesCrypt(JNIEnv *env, jobject javaThis, jint bits, jboolean isEncrypt, jstring key, jstring iv,
                      jbyteArray inData);
 
-            static jclass findClassByNative(JNIEnv *env, jobject javaThis,jobject loader, jstring name);
+            static jclass findClass(JNIEnv *env, jobject javaThis, jstring name);
 
             static void JNICALL handleException(jvmtiEnv *jvmti_env,
                                                 JNIEnv *env,

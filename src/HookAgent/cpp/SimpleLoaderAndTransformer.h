@@ -40,7 +40,7 @@ namespace com_levin_commons_plugins {
              * @param name
              * @return
              */
-            static jclass findClassByNative(JNIEnv *env, jobject javaThis, jobject loader,jstring name);
+            static jclass findClass(JNIEnv *env, jobject javaThis, jstring name);
 
             /**
              *

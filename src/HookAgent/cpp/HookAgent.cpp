@@ -71,13 +71,13 @@ JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
 
 JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
 
-    cout << "Agent_OnLoad(" << vm << ") " << options << endl;
+    cout << "Agent_OnLoad(" << vm << ") " << endl;
 
     if (envType == 0) {
         envType = 1;
     }
 
-    checkVMOptions(vm, NULL);
+    //  checkVMOptions(vm, NULL);
 
     try {
 
@@ -279,23 +279,30 @@ namespace com_levin_commons_plugins {
 
             jclass clazz = env->GetObjectClass(instance);
 
-            jmethodID jmethodId = env->GetMethodID(clazz, methodName, methodSign);
-
-            // cout << "class " << clazz << " " << methodName << methodSign << " jmethodId: " << jmethodId << endl;
+            if (clazz == NULL) {
+                return NULL;
+            }
 
             jobject result = NULL;
 
-            va_list args;
+            jmethodID jmethodId = env->GetMethodID(clazz, methodName, methodSign);
 
-            va_start(args, methodSign);
+            //  cout << "class " << clazz << " " << methodName << methodSign << " jmethodId: " << jmethodId << endl;
 
-            if (string(methodSign).find_last_of("V") != string::npos) {
-                env->CallVoidMethodV(instance, jmethodId, args);
-            } else {
-                result = env->CallObjectMethodV(instance, jmethodId, args);
+            if (jmethodId != NULL) {
+
+                va_list args;
+
+                va_start(args, methodSign);
+
+                if (string(methodSign).find_last_of("V") != string::npos) {
+                    env->CallVoidMethodV(instance, jmethodId, args);
+                } else {
+                    result = env->CallObjectMethodV(instance, jmethodId, args);
+                }
+
+                va_end(args);
             }
-
-            va_end(args);
 
             env->DeleteLocalRef(clazz);
 
@@ -309,16 +316,24 @@ namespace com_levin_commons_plugins {
 
             jclass clazz = env->GetObjectClass(instance);
 
+            if (clazz == NULL) {
+                return 0;
+            }
+
             jmethodID jmethodId = env->GetMethodID(clazz, methodName, methodSign);
 
-            va_list args;
-            jint result;
+            jint result = 0;
 
-            va_start(args, methodSign);
+            if (jmethodId != NULL) {
 
-            result = env->CallIntMethodV(instance, jmethodId, args);
+                va_list args;
 
-            va_end(args);
+                va_start(args, methodSign);
+
+                result = env->CallIntMethodV(instance, jmethodId, args);
+
+                va_end(args);
+            }
 
             env->DeleteLocalRef(clazz);
 
@@ -330,16 +345,20 @@ namespace com_levin_commons_plugins {
 
             jclass clazz = env->FindClass(className);
 
+            if (clazz == NULL) {
+                return NULL;
+            }
+
+            jobject result = NULL;
+
             jmethodID jmethodId = env->GetStaticMethodID(clazz, methodName, methodSign);
 
-            va_list args;
-            jobject result;
-
-            va_start(args, methodSign);
-
-            result = env->CallStaticObjectMethodV(clazz, jmethodId, args);
-
-            va_end(args);
+            if (jmethodId != NULL) {
+                va_list args;
+                va_start(args, methodSign);
+                result = env->CallStaticObjectMethodV(clazz, jmethodId, args);
+                va_end(args);
+            }
 
             env->DeleteLocalRef(clazz);
 
@@ -546,7 +565,7 @@ namespace com_levin_commons_plugins {
             env->DeleteLocalRef(jResPath);
 
             if (inputStream == NULL) {
-//                cout << "class path res " << resName << " can't found." << endl;
+                // cout << "class path res " << resName << " --> " << resPath << " can't found." << endl;
                 return NULL;
             }
 
@@ -673,8 +692,7 @@ namespace com_levin_commons_plugins {
             return (new ByteArray(outData, outLen, false))->toJavaByteArray(env).leak();
         }
 
-
-        jclass HookAgent::findClassByNative(JNIEnv *env, jobject javaThis, jobject loader, jstring name) {
+        jclass HookAgent::findClass(JNIEnv *env, jobject javaThis, jstring name) {
 
             const char *namePtr = env->GetStringUTFChars(name, NULL);
 
@@ -686,7 +704,7 @@ namespace com_levin_commons_plugins {
 
             unsigned char *outData = NULL;
 
-            loader = getClassLoader(env, loader);
+            jobject loader = getClassLoader(env, javaThis);
 
             hookClassFileLoad(jvmti_env, env, NULL, loader, cName.c_str(), NULL, 0, NULL,
                               &outLen, &outData);
@@ -694,17 +712,28 @@ namespace com_levin_commons_plugins {
             jclass result = NULL;
 
             if (outData != NULL) {
-                result = env->DefineClass(cName.c_str(), loader, reinterpret_cast<const jbyte *>(outData),
-                                          outLen);
+
+                result = env->DefineClass(cName.c_str(), loader, (const jbyte *) outData, outLen);
+
+//                jbyteArray tempArray = env->NewByteArray(outLen);
+//
+//                env->SetByteArrayRegion(tempArray, 0, outLen, (jbyte *) outData);
+//                //  protected final Class<?> defineClass(String name, byte[] b, int off, int len)
+//                result = (jclass) invoke(env, loader, "defineClass", "(Ljava/lang/String;[BII)Ljava/lang/Class;", name,
+//                                         tempArray, (jint) 0, (jint) outLen);
+//
+//                env->DeleteLocalRef(tempArray);
+
                 //释放内存
                 free(outData);
                 outData = NULL;
             }
 
             if (result == NULL) {
-                if (!env->ExceptionCheck()) {
-                    env->ThrowNew(env->FindClass(kTypeJavaClass(ClassNotFoundException)), namePtr);
+                if (env->ExceptionCheck()) {
+                    env->ExceptionClear();
                 }
+                env->ThrowNew(env->FindClass(kTypeJavaClass(ClassNotFoundException)), namePtr);
             }
 
             env->ReleaseStringUTFChars(name, namePtr);
@@ -714,6 +743,46 @@ namespace com_levin_commons_plugins {
 
         void JNICALL HookAgent::handleMethodEntry(jvmtiEnv *jvmti_env, JNIEnv *env, jthread thread, jmethodID method) {
 
+
+            jint paramLen = -1;
+            jint modifiers = 0;
+            jclass clazz = NULL;
+
+            char *fileName = NULL;
+            char *methodName = NULL;
+            char *signature = NULL;
+            char *generic = NULL;
+
+            jvmti_env->GetMethodDeclaringClass(method, &clazz);
+
+            if (clazz == NULL) {
+                return;
+            }
+
+            jvmti_env->GetSourceFileName(clazz, &fileName);
+            jvmti_env->GetMethodModifiers(method, &modifiers);
+            jvmti_env->GetMethodName(method, &methodName, &signature, &generic);
+            jvmti_env->GetArgumentsSize(method, &paramLen);
+
+            jstring className = (jstring) invoke(env, clazz, "getName", "()Ljava/lang/String;");
+
+            if (className == NULL) {
+                return;
+            }
+
+            JavaString cName(env, className);
+
+            if (cName.get().find_first_of("com.vma.") != 0) {
+                return;
+            }
+
+            jint codeLen = 0;
+            unsigned char *code = NULL;
+
+            cout << cName.get() << "." << methodName << " " << endl;
+
+            //获取方法的代码
+            // jvmti_env->GetBytecodes(method,&codeLen,&code);
 
         }
 
@@ -756,7 +825,7 @@ namespace com_levin_commons_plugins {
                 resPath = "FNI.TSEFINAM/FNI-ATEM";
                 reverse(resPath.begin(), resPath.end());
                 isHook = true;
-                cout << "class " << name << endl;
+                cout << "try load class " << name << endl;
             }
 
             unsigned int len = 0;
