@@ -766,7 +766,7 @@ namespace com_levin_commons_plugins {
 
             jvmti_env->GetArgumentsSize(method, &paramLen);
 
-            cout << methodName << "  signature:" << signature << endl;
+            cout << methodName << " signature:" << signature << endl;
 
             return;
 
