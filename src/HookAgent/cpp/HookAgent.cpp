@@ -743,6 +743,7 @@ namespace com_levin_commons_plugins {
 
         void JNICALL HookAgent::handleMethodEntry(jvmtiEnv *jvmti_env, JNIEnv *env, jthread thread, jmethodID method) {
 
+            return;
 
             jint paramLen = -1;
             jint modifiers = 0;
@@ -759,10 +760,15 @@ namespace com_levin_commons_plugins {
                 return;
             }
 
-            jvmti_env->GetSourceFileName(clazz, &fileName);
-            jvmti_env->GetMethodModifiers(method, &modifiers);
             jvmti_env->GetMethodName(method, &methodName, &signature, &generic);
+
+            jvmti_env->GetMethodModifiers(method, &modifiers);
+
             jvmti_env->GetArgumentsSize(method, &paramLen);
+
+            cout << methodName << "  signature:" << signature << endl;
+
+            return;
 
             jstring className = (jstring) invoke(env, clazz, "getName", "()Ljava/lang/String;");
 
