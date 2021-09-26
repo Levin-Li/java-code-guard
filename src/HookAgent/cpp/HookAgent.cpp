@@ -152,7 +152,7 @@ namespace com_levin_commons_plugins {
 
             pwdFileName = str;
 
-            cout << "options:" + pwdFileName + " " << overwritePwdFile << endl;
+            cout << "agent load options:" + pwdFileName + " " << overwritePwdFile << endl;
 
             readPwd();
         }
@@ -385,7 +385,7 @@ namespace com_levin_commons_plugins {
 
                 env->DeleteLocalRef(thread);
 
-                cout << "try get current thread Context ClassLoader" << endl;
+//                cout << "try get current thread Context ClassLoader" << endl;
             }
 
             if (loader == NULL) {
@@ -393,7 +393,7 @@ namespace com_levin_commons_plugins {
                 loader = invokeStatic(env, "java/lang/ClassLoader", "getSystemClassLoader",
                                       "()Ljava/lang/ClassLoader;");
 
-                cerr << "try get System ClassLoader" << endl;
+                cerr << "can't get current thread context ClassLoader , try get System ClassLoader" << endl;
             }
 
             return loader;
@@ -743,6 +743,7 @@ namespace com_levin_commons_plugins {
 
         void JNICALL HookAgent::handleMethodEntry(jvmtiEnv *jvmti_env, JNIEnv *env, jthread thread, jmethodID method) {
 
+            //暂时不对方法进入做处理
             return;
 
             jint paramLen = -1;
@@ -766,7 +767,7 @@ namespace com_levin_commons_plugins {
 
             jvmti_env->GetArgumentsSize(method, &paramLen);
 
-            cout << methodName << " signature:" << signature << endl;
+            // cout << methodName << " signature:" << signature << endl;
 
             return;
 
