@@ -1,8 +1,6 @@
 #include "SimpleLoaderAndTransformer.h"
 
 
-
-
 namespace com_levin_commons_plugins {
     namespace jni {
 
@@ -44,14 +42,14 @@ namespace com_levin_commons_plugins {
             return envType;
         }
 
-        jbyteArray
-        SimpleLoaderAndTransformer::transform1(JNIEnv *env, jobject javaThis, jstring password, jbyteArray data) {
-            return SimpleLoaderAndTransformer::aesCrypt(env, javaThis, JNI_TRUE, JNI_TRUE, data);
+        jbyteArray SimpleLoaderAndTransformer::transform1(JNIEnv *env, jobject javaThis,
+                                                          jstring password, jbyteArray data) {
+            return aesCrypt(env, javaThis, JNI_TRUE, JNI_TRUE, data);
         }
 
-        jbyteArray
-        SimpleLoaderAndTransformer::transform2(JNIEnv *env, jobject javaThis, jstring password, jbyteArray data) {
-            return SimpleLoaderAndTransformer::aesCrypt(env, javaThis, JNI_TRUE, JNI_FALSE, data);
+        jbyteArray SimpleLoaderAndTransformer::transform2(JNIEnv *env, jobject javaThis,
+                                                          jstring password, jbyteArray data) {
+            return aesCrypt(env, javaThis, JNI_TRUE, JNI_FALSE, data);
         }
 
         /**
@@ -65,9 +63,10 @@ namespace com_levin_commons_plugins {
          * @param classBuffer
          * @return
          */
-        jbyteArray
-        SimpleLoaderAndTransformer::transform(JNIEnv *env, jobject javaThis, jobject classLoader, jstring className,
-                                              jclass classBeingRedefined, jobject domain, jbyteArray classBuffer) {
+        jbyteArray SimpleLoaderAndTransformer::transform(JNIEnv *env, jobject javaThis,
+                                                         jobject classLoader, jstring className,
+                                                         jclass classBeingRedefined, jobject domain,
+                                                         jbyteArray classBuffer) {
 
             if (className == NULL
                 || classBuffer == NULL || env->GetArrayLength(classBuffer) < 1) {
@@ -84,16 +83,14 @@ namespace com_levin_commons_plugins {
             return outData;
         }
 
-        jbyteArray
-        SimpleLoaderAndTransformer::decryptAes(JNIEnv *env, jobject javaThis, jint bits, jstring password,
-                                               jbyteArray data) {
-            return SimpleLoaderAndTransformer::aesCrypt(env, javaThis, bits, JNI_FALSE, password, NULL, data);
+        jbyteArray SimpleLoaderAndTransformer::decryptAes(JNIEnv *env, jobject javaThis,
+                                                          jint bits, jstring password, jbyteArray data) {
+            return aesCrypt(env, javaThis, bits, JNI_FALSE, password, NULL, data);
         }
 
-        jbyteArray
-        SimpleLoaderAndTransformer::encryptAes(JNIEnv *env, jobject javaThis, jint bits, jstring password,
-                                               jbyteArray data) {
-            return SimpleLoaderAndTransformer::aesCrypt(env, javaThis, bits, JNI_TRUE, password, NULL, data);
+        jbyteArray SimpleLoaderAndTransformer::encryptAes(JNIEnv *env, jobject javaThis,
+                                                          jint bits, jstring password, jbyteArray data) {
+            return aesCrypt(env, javaThis, bits, JNI_TRUE, password, NULL, data);
         }
     }
 }

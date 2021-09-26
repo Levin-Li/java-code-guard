@@ -38,7 +38,6 @@ namespace com_levin_commons_plugins {
             /////////////////////// agent 模式 方法 end ///////////////////////////////////////
         private:
 
-
             static jbyteArray aesCrypt(JNIEnv *env, jobject javaThis, jint bits,
                                        jboolean isEncrypt, jstring key, jstring iv,
                                        jbyteArray inData);
