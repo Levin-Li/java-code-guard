@@ -1,5 +1,8 @@
 #include "SimpleLoaderAndTransformer.h"
 
+
+
+
 namespace com_levin_commons_plugins {
     namespace jni {
 
@@ -28,6 +31,7 @@ namespace com_levin_commons_plugins {
 
             addNativeMethod("encryptAes", (void *) encryptAes, kTypeArray(kTypeByte), kTypeInt, kTypeString,
                             kTypeArray(kTypeByte), NULL);
+
             addNativeMethod("decryptAes", (void *) decryptAes, kTypeArray(kTypeByte), kTypeInt, kTypeString,
                             kTypeArray(kTypeByte), NULL);
 
@@ -40,23 +44,14 @@ namespace com_levin_commons_plugins {
             return envType;
         }
 
-        void SimpleLoaderAndTransformer::setPwd(JNIEnv *env, jobject javaThis, jstring pwd, jstring pwdFileName) {
-            HookAgent::setPwd(env, javaThis, pwd, pwdFileName);
-        }
-
-        jclass
-        SimpleLoaderAndTransformer::findClass(JNIEnv *env, jobject javaThis, jstring name) {
-            return HookAgent::findClass(env, javaThis, name);
-        }
-
         jbyteArray
         SimpleLoaderAndTransformer::transform1(JNIEnv *env, jobject javaThis, jstring password, jbyteArray data) {
-            return HookAgent::aesCrypt(env, javaThis, JNI_TRUE, JNI_TRUE, data);
+            return SimpleLoaderAndTransformer::aesCrypt(env, javaThis, JNI_TRUE, JNI_TRUE, data);
         }
 
         jbyteArray
         SimpleLoaderAndTransformer::transform2(JNIEnv *env, jobject javaThis, jstring password, jbyteArray data) {
-            return HookAgent::aesCrypt(env, javaThis, JNI_TRUE, JNI_FALSE, data);
+            return SimpleLoaderAndTransformer::aesCrypt(env, javaThis, JNI_TRUE, JNI_FALSE, data);
         }
 
         /**
@@ -80,7 +75,7 @@ namespace com_levin_commons_plugins {
             }
 
             //使用默认密码解密
-            jstring pwd = env->NewStringUTF(HookAgent::readPwd().c_str());
+            jstring pwd = env->NewStringUTF(SimpleLoaderAndTransformer::readPwd().c_str());
 
             jbyteArray outData = decryptAes(env, javaThis, 128, pwd, classBuffer);
 
@@ -92,13 +87,13 @@ namespace com_levin_commons_plugins {
         jbyteArray
         SimpleLoaderAndTransformer::decryptAes(JNIEnv *env, jobject javaThis, jint bits, jstring password,
                                                jbyteArray data) {
-            return HookAgent::aesCrypt(env, javaThis, bits, JNI_FALSE, password, NULL, data);
+            return SimpleLoaderAndTransformer::aesCrypt(env, javaThis, bits, JNI_FALSE, password, NULL, data);
         }
 
         jbyteArray
         SimpleLoaderAndTransformer::encryptAes(JNIEnv *env, jobject javaThis, jint bits, jstring password,
                                                jbyteArray data) {
-            return HookAgent::aesCrypt(env, javaThis, bits, JNI_TRUE, password, NULL, data);
+            return SimpleLoaderAndTransformer::aesCrypt(env, javaThis, bits, JNI_TRUE, password, NULL, data);
         }
     }
 }

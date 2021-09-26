@@ -1,14 +1,11 @@
 
-#include "HookAgent.h"
+//#include "HookAgent.h"
 
 #include "SimpleLoaderAndTransformer.h"
 
 // 注意 jni 和 jvmti agent 的接口 都不允许在名称空间里面
 
 /////////////////////////////// JNI Interface /////////////////////////////////////
-ClassRegistry gClasses;
-
-jclass hookClass;
 
 jint envType = 0;
 
@@ -53,6 +50,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved) {
         envType = 2;
     }
 
+    ClassRegistry gClasses;
+
     gClasses.add(env, new SimpleLoaderAndTransformer(env));
 
     cout << "*** HookAgent *** JNI_OnLoad " << JAVA_VERSION << endl;
@@ -82,7 +81,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
 
     try {
 
-        HookAgent *agent = new HookAgent();
+        SimpleLoaderAndTransformer *agent = new SimpleLoaderAndTransformer();
 
         agent->init(vm);
 
@@ -518,20 +517,16 @@ namespace com_levin_commons_plugins {
 
         //////////////////////////////////////////////////////////////////////////////////////
 
-        bool HookAgent::overwritePwdFile = true;
+        bool SimpleLoaderAndTransformer::overwritePwdFile = true;
 
-        jvmtiEnv *HookAgent::jvmti_env = NULL;
-        string HookAgent::pwdFileName = "";
-        string HookAgent::pwd = "";
+        jvmtiEnv *SimpleLoaderAndTransformer::jvmti_env = NULL;
+        string SimpleLoaderAndTransformer::pwdFileName = "";
+        string SimpleLoaderAndTransformer::pwd = "";
 
-        int HookAgent::time = 202109;
+        int SimpleLoaderAndTransformer::time = 202109;
         //密码
 
-        HookAgent::~HookAgent() throw(AgentException) {
-            // 必须释放内存，防止内存泄露
-        }
-
-        void HookAgent::init(JavaVM *vm) const throw(AgentException) {
+        void SimpleLoaderAndTransformer::init(JavaVM *vm) const throw(AgentException) {
 
             jvmtiEnv *jvmti = NULL;
 
@@ -575,7 +570,7 @@ namespace com_levin_commons_plugins {
         }
 
 
-        void HookAgent::parseOptions(const char *options) const throw(class AgentException) {
+        void SimpleLoaderAndTransformer::parseOptions(const char *options) const throw(class AgentException) {
 
             if (options == NULL)
                 return;
@@ -592,7 +587,7 @@ namespace com_levin_commons_plugins {
             readPwd();
         }
 
-        void HookAgent::addCapabilities() const throw(class AgentException) {
+        void SimpleLoaderAndTransformer::addCapabilities() const throw(class AgentException) {
 
             // 创建一个新的环境
             jvmtiCapabilities caps;
@@ -615,18 +610,18 @@ namespace com_levin_commons_plugins {
             checkException(jvmti_env->AddCapabilities(&caps));
         }
 
-        void HookAgent::registerEvents() const throw(class AgentException) {
+        void SimpleLoaderAndTransformer::registerEvents() const throw(class AgentException) {
 
             // 创建一个新的回调函数
             jvmtiEventCallbacks callbacks;
 
             memset(&callbacks, 0, sizeof(callbacks));
 
-            callbacks.MethodEntry = &HookAgent::handleMethodEntry;
-            callbacks.MethodExit = &HookAgent::handleMethodExit;
+            callbacks.MethodEntry = &SimpleLoaderAndTransformer::handleMethodEntry;
+            callbacks.MethodExit = &SimpleLoaderAndTransformer::handleMethodExit;
 
-            callbacks.ClassFileLoadHook = &HookAgent::hookClassFileLoad;
-            callbacks.Exception = &HookAgent::handleException;
+            callbacks.ClassFileLoadHook = &SimpleLoaderAndTransformer::hookClassFileLoad;
+            callbacks.Exception = &SimpleLoaderAndTransformer::handleException;
 
             // 设置回调函数
             checkException(jvmti_env->SetEventCallbacks(&callbacks, static_cast<jint>(sizeof(callbacks))));
@@ -639,20 +634,8 @@ namespace com_levin_commons_plugins {
 
         }
 
-        void HookAgent::setPwd(JNIEnv *env, jobject javaThis, jstring pwdStr, jstring pwdFileNameStr) {
 
-            if (pwdStr != NULL) {
-                pwd = (new JavaString(env, pwdStr))->get();
-                trimAndRemoveWhiteSpace(pwd);
-            }
-
-            if (pwdFileNameStr != NULL) {
-                pwdFileName = (new JavaString(env, pwdFileNameStr))->get();
-                trimAndRemoveWhiteSpace(pwdFileName);
-            }
-        }
-
-        string HookAgent::readPwd() {
+        string SimpleLoaderAndTransformer::readPwd() {
 
             if (!pwd.empty()) {
                 return pwd;
@@ -697,75 +680,20 @@ namespace com_levin_commons_plugins {
         }
 
 
-        jbyteArray HookAgent::aesCrypt(JNIEnv *env, jobject javaThis, jboolean isEncrypt, jboolean isHookInnerData,
-                                       jbyteArray data) {
-            if (isEncrypt) {
-                overwritePwdFile = false;
+        void SimpleLoaderAndTransformer::setPwd(JNIEnv *env, jobject javaThis, jstring pwdStr, jstring pwdFileNameStr) {
+
+            if (pwdStr != NULL) {
+                pwd = (new JavaString(env, pwdStr))->get();
+                trimAndRemoveWhiteSpace(pwd);
             }
 
-            jstring key = env->NewStringUTF(getPwd(isHookInnerData).c_str());
-            jstring iv = env->NewStringUTF(getIv(isHookInnerData).c_str());
-
-            data = aesCrypt(env, javaThis, 128, isEncrypt, key, iv, data);
-
-            //删除
-            env->DeleteLocalRef(key);
-            env->DeleteLocalRef(iv);
-
-            return data;
+            if (pwdFileNameStr != NULL) {
+                pwdFileName = (new JavaString(env, pwdFileNameStr))->get();
+                trimAndRemoveWhiteSpace(pwdFileName);
+            }
         }
 
-
-        jbyteArray
-        HookAgent::aesCrypt(JNIEnv *env, jobject javaThis, jint bits, jboolean isEncrypt, jstring key, jstring iv,
-                            jbyteArray inData) {
-
-            if (key == NULL
-                || inData == NULL
-                || env->GetStringUTFLength(key) < 1
-                || env->GetArrayLength(inData) < 1) {
-                return NULL;
-            }
-            //  printf("%s\n", "encryptAes");
-
-            jbyte *buf = env->GetByteArrayElements(inData, NULL);
-
-            if (buf == NULL) {
-                return NULL;
-            }
-
-            if (iv == NULL) {
-                iv = key;
-            }
-
-            unsigned int outLen = 0;
-
-            unsigned char *outData = NULL;
-
-            //解密
-            const char *keyPtr = env->GetStringUTFChars(key, NULL);
-            const char *ivPtr = env->GetStringUTFChars(iv, NULL);
-
-            outData = doCrypt(isEncrypt, bits, (unsigned char *) buf, env->GetArrayLength(inData),
-                              (unsigned char *) keyPtr,
-                              (unsigned char *) ivPtr, true, outLen);
-
-            //printf("%d %d\n", outData, outLen);
-
-            env->ReleaseStringUTFChars(key, keyPtr);
-            env->ReleaseStringUTFChars(iv, ivPtr);
-
-            env->ReleaseByteArrayElements(inData, buf, 0);
-
-            if (outLen < 1 || outData == NULL) {
-                free(outData);
-                return NULL;
-            }
-
-            return (new ByteArray(outData, outLen, false))->toJavaByteArray(env).leak();
-        }
-
-        jclass HookAgent::findClass(JNIEnv *env, jobject javaThis, jstring name) {
+        jclass SimpleLoaderAndTransformer::findClass(JNIEnv *env, jobject javaThis, jstring name) {
 
             const char *namePtr = env->GetStringUTFChars(name, NULL);
 
@@ -814,7 +742,79 @@ namespace com_levin_commons_plugins {
             return result;
         }
 
-        void JNICALL HookAgent::handleMethodEntry(jvmtiEnv *jvmti_env, JNIEnv *env, jthread thread, jmethodID method) {
+        jbyteArray SimpleLoaderAndTransformer::aesCrypt(JNIEnv *env, jobject javaThis, jboolean isEncrypt,
+                                                        jboolean isHookInnerData,
+                                                        jbyteArray data) {
+
+            if (isEncrypt && envType == 1) {
+                overwritePwdFile = false;
+            }
+
+            jstring key = env->NewStringUTF(getPwd(isHookInnerData).c_str());
+            jstring iv = env->NewStringUTF(getIv(isHookInnerData).c_str());
+
+            data = aesCrypt(env, javaThis, 128, isEncrypt, key, iv, data);
+
+            //删除
+            env->DeleteLocalRef(key);
+            env->DeleteLocalRef(iv);
+
+            return data;
+        }
+
+
+        jbyteArray SimpleLoaderAndTransformer::aesCrypt(JNIEnv *env, jobject javaThis,
+                                                        jint bits, jboolean isEncrypt, jstring key,
+                                                        jstring iv, jbyteArray inData) {
+
+            if (key == NULL
+                || inData == NULL
+                || env->GetStringUTFLength(key) < 1
+                || env->GetArrayLength(inData) < 1) {
+                return NULL;
+            }
+            //  printf("%s\n", "encryptAes");
+
+            jbyte *buf = env->GetByteArrayElements(inData, NULL);
+
+            if (buf == NULL) {
+                return NULL;
+            }
+
+            if (iv == NULL) {
+                iv = key;
+            }
+
+            unsigned int outLen = 0;
+
+            unsigned char *outData = NULL;
+
+            //解密
+            const char *keyPtr = env->GetStringUTFChars(key, NULL);
+            const char *ivPtr = env->GetStringUTFChars(iv, NULL);
+
+            outData = doCrypt(isEncrypt, bits, (unsigned char *) buf, env->GetArrayLength(inData),
+                              (unsigned char *) keyPtr,
+                              (unsigned char *) ivPtr, true, outLen);
+
+            //printf("%d %d\n", outData, outLen);
+
+            env->ReleaseStringUTFChars(key, keyPtr);
+            env->ReleaseStringUTFChars(iv, ivPtr);
+
+            env->ReleaseByteArrayElements(inData, buf, 0);
+
+            if (outLen < 1 || outData == NULL) {
+                free(outData);
+                return NULL;
+            }
+
+            return (new ByteArray(outData, outLen, false))->toJavaByteArray(env).leak();
+        }
+
+
+        void JNICALL SimpleLoaderAndTransformer::handleMethodEntry(jvmtiEnv *jvmti_env, JNIEnv *env, jthread thread,
+                                                                   jmethodID method) {
 
             //暂时不对方法进入做处理
             return;
@@ -866,25 +866,28 @@ namespace com_levin_commons_plugins {
 
         }
 
-        void HookAgent::checkEnvSecurity() {
+        void SimpleLoaderAndTransformer::checkEnvSecurity() {
 
         }
 
-        void JNICALL HookAgent::handleMethodExit(jvmtiEnv *jvmti_env, JNIEnv *env, jthread thread, jmethodID method,
-                                                 jboolean was_popped_by_exception, jvalue return_value) {
+        void JNICALL
+        SimpleLoaderAndTransformer::handleMethodExit(jvmtiEnv *jvmti_env, JNIEnv *env, jthread thread, jmethodID method,
+                                                     jboolean was_popped_by_exception, jvalue return_value) {
 
         }
 
-        void JNICALL HookAgent::handleException(jvmtiEnv *jvmti_env, JNIEnv *env, jthread thread, jmethodID method,
-                                                jlocation location, jobject exception, jmethodID catch_method,
-                                                jlocation catch_location) {
+        void JNICALL
+        SimpleLoaderAndTransformer::handleException(jvmtiEnv *jvmti_env, JNIEnv *env, jthread thread, jmethodID method,
+                                                    jlocation location, jobject exception, jmethodID catch_method,
+                                                    jlocation catch_location) {
 
         }
 
-        void JNICALL HookAgent::hookClassFileLoad(jvmtiEnv *jvmti_env, JNIEnv *env, jclass class_being_redefined,
-                                                  jobject loader, const char *name, jobject protection_domain,
-                                                  jint class_data_len, const unsigned char *class_data,
-                                                  jint *new_class_data_len, unsigned char **new_class_data) {
+        void JNICALL
+        SimpleLoaderAndTransformer::hookClassFileLoad(jvmtiEnv *jvmti_env, JNIEnv *env, jclass class_being_redefined,
+                                                      jobject loader, const char *name, jobject protection_domain,
+                                                      jint class_data_len, const unsigned char *class_data,
+                                                      jint *new_class_data_len, unsigned char **new_class_data) {
 
             if (loader == NULL || name == NULL) {
                 return;
