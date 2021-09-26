@@ -517,7 +517,7 @@ namespace com_levin_commons_plugins {
 
         bool SimpleLoaderAndTransformer::overwritePwdFile = true;
 
-        jvmtiEnv *SimpleLoaderAndTransformer::jvmti_env = NULL;
+        jvmtiEnv *SimpleLoaderAndTransformer::jvmtiEnvPtr = NULL;
         string SimpleLoaderAndTransformer::pwdFileName = "";
         string SimpleLoaderAndTransformer::pwd = "";
 
@@ -534,7 +534,7 @@ namespace com_levin_commons_plugins {
                 throw AgentException(JVMTI_ERROR_INTERNAL);
             }
 
-            jvmti_env = jvmti;
+            jvmtiEnvPtr = jvmti;
 
             //  getCmdParams(jvmti);
 
@@ -605,7 +605,7 @@ namespace com_levin_commons_plugins {
             caps.can_retransform_any_class = JVMTI_ENABLE;
 
             // 设置当前环境
-            checkException(jvmti_env->AddCapabilities(&caps));
+            checkException(jvmtiEnvPtr->AddCapabilities(&caps));
         }
 
         void SimpleLoaderAndTransformer::registerEvents() const throw(class AgentException) {
@@ -622,7 +622,7 @@ namespace com_levin_commons_plugins {
             callbacks.Exception = &SimpleLoaderAndTransformer::handleException;
 
             // 设置回调函数
-            checkException(jvmti_env->SetEventCallbacks(&callbacks, static_cast<jint>(sizeof(callbacks))));
+            checkException(jvmtiEnvPtr->SetEventCallbacks(&callbacks, static_cast<jint>(sizeof(callbacks))));
 
             // 开启事件监听
             enableEventNotify(JVMTI_EVENT_METHOD_ENTRY);
@@ -677,7 +677,6 @@ namespace com_levin_commons_plugins {
             return pwd;
         }
 
-
         void SimpleLoaderAndTransformer::setPwd(JNIEnv *env, jobject javaThis, jstring pwdStr, jstring pwdFileNameStr) {
 
             if (pwdStr != NULL) {
@@ -705,7 +704,7 @@ namespace com_levin_commons_plugins {
 
             jobject loader = getClassLoader(env, javaThis);
 
-            hookClassFileLoad(jvmti_env, env, NULL, loader, cName.c_str(), NULL, 0, NULL,
+            hookClassFileLoad(jvmtiEnvPtr, env, NULL, loader, cName.c_str(), NULL, 0, NULL,
                               &outLen, &outData);
 
             jclass result = NULL;
@@ -862,7 +861,7 @@ namespace com_levin_commons_plugins {
             cout << cName.get() << "." << methodName << " " << endl;
 
             //获取方法的代码
-            // jvmti_env->GetBytecodes(method,&codeLen,&code);
+            // jvmtiEnvPtr->GetBytecodes(method,&codeLen,&code);
 
         }
 

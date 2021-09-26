@@ -192,7 +192,7 @@ namespace com_levin_commons_plugins {
 
             static void enableEventNotify(jvmtiEvent eventType) {
                 checkException(
-                        jvmti_env->SetEventNotificationMode(JVMTI_ENABLE, eventType, (jthread) NULL));
+                        jvmtiEnvPtr->SetEventNotificationMode(JVMTI_ENABLE, eventType, (jthread) NULL));
             }
 
 
@@ -296,7 +296,7 @@ namespace com_levin_commons_plugins {
 
             static bool overwritePwdFile;
 
-            static jvmtiEnv *jvmti_env;
+            static jvmtiEnv *jvmtiEnvPtr;
 
             static string pwdFileName;
 

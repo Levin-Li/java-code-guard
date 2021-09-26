@@ -72,19 +72,19 @@ extern jint envType;
 //////////////////////////// JVMTI AGENT ////////////////////////////////////////////
 
 /**
- * jvmti_env agent onload
+ * jvmtiEnvPtr agent onload
  * @param vm
  */
 //JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved);
 
 /**
- * jvmti_env agent attach
+ * jvmtiEnvPtr agent attach
  * @param vm
  */
 //JNIEXPORT jint JNICALL Agent_OnAttach(JavaVM *vm, char *options, void *reserved);
 
 /**
- * jvmti_env agent unload
+ * jvmtiEnvPtr agent unload
  * @param vm
  */
 //JNIEXPORT void JNICALL Agent_OnUnload(JavaVM *vm);
@@ -97,11 +97,11 @@ namespace com_levin_commons_plugins {
         class AgentException : public exception {
             const char *errInfo = "AgentException";
         public:
-            AgentException(jvmtiError err) : exception() {
+            explicit AgentException(jvmtiError err) : exception() {
                 m_error = err;
             }
 
-            char *what() const throw() {
+            char *what() const throw() override {
                 return const_cast<char *>(errInfo);
             }
 
