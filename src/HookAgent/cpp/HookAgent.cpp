@@ -133,9 +133,9 @@ namespace com_levin_commons_plugins {
             s.erase(0, s.find_first_not_of(" "));
             s.erase(s.find_last_not_of(" ") + 1);
 
-            replace_all_distinct(s,"\r","");
-            replace_all_distinct(s,"\n","");
-            replace_all_distinct(s,"\t","");
+            replace_all_distinct(s, "\r", "");
+            replace_all_distinct(s, "\n", "");
+            replace_all_distinct(s, "\t", "");
 
         }
 
@@ -320,9 +320,9 @@ namespace com_levin_commons_plugins {
          * @param outLen
          * @return
          */
-        unsigned char *
-        doCrypt(bool isEncrypt, int bits, unsigned char *inData, unsigned int inLen, unsigned char *key,
-                unsigned char *iv, bool containsLenInData, unsigned int &outLen) {
+        unsigned char *doCrypt(bool isEncrypt, int bits, unsigned char *inData,
+                               unsigned int inLen, unsigned char *key,
+                               unsigned char *iv, bool containsLenInData, unsigned int &outLen) {
 
             if (inData == NULL || inLen < 1 || key == NULL) {
                 return NULL;
@@ -434,9 +434,8 @@ namespace com_levin_commons_plugins {
          * @param outLen 最后的输出数据长度
          * @return
          */
-        unsigned char *
-        loadResource(JNIEnv *env, jobject loader, const char *resName, const char *resPath, bool putLenToOutData,
-                     unsigned int &outLen) {
+        unsigned char *loadResource(JNIEnv *env, jobject loader, const char *resName,
+                                    const char *resPath, bool putLenToOutData, unsigned int &outLen) {
 
             loader = getClassLoader(env, loader);
 
@@ -736,6 +735,10 @@ namespace com_levin_commons_plugins {
                 env->ThrowNew(env->FindClass(kTypeJavaClass(ClassNotFoundException)), namePtr);
             }
 
+            if (loader != javaThis) {
+                env->DeleteLocalRef(loader);
+            }
+
             env->ReleaseStringUTFChars(name, namePtr);
 
             return result;
@@ -744,7 +747,6 @@ namespace com_levin_commons_plugins {
         jbyteArray SimpleLoaderAndTransformer::aesCrypt(JNIEnv *env, jobject javaThis, jboolean isEncrypt,
                                                         jboolean isHookInnerData,
                                                         jbyteArray data) {
-
             if (isEncrypt && envType == 1) {
                 overwritePwdFile = false;
             }
@@ -765,7 +767,6 @@ namespace com_levin_commons_plugins {
         jbyteArray SimpleLoaderAndTransformer::aesCrypt(JNIEnv *env, jobject javaThis,
                                                         jint bits, jboolean isEncrypt, jstring key,
                                                         jstring iv, jbyteArray inData) {
-
             if (key == NULL
                 || inData == NULL
                 || env->GetStringUTFLength(key) < 1
@@ -869,24 +870,29 @@ namespace com_levin_commons_plugins {
 
         }
 
-        void JNICALL
-        SimpleLoaderAndTransformer::handleMethodExit(jvmtiEnv *jvmti_env, JNIEnv *env, jthread thread, jmethodID method,
-                                                     jboolean was_popped_by_exception, jvalue return_value) {
+        void JNICALL SimpleLoaderAndTransformer::handleMethodExit(jvmtiEnv *jvmti_env, JNIEnv *env,
+                                                                  jthread thread, jmethodID method,
+                                                                  jboolean was_popped_by_exception,
+                                                                  jvalue return_value) {
 
         }
 
-        void JNICALL
-        SimpleLoaderAndTransformer::handleException(jvmtiEnv *jvmti_env, JNIEnv *env, jthread thread, jmethodID method,
-                                                    jlocation location, jobject exception, jmethodID catch_method,
-                                                    jlocation catch_location) {
+        void JNICALL SimpleLoaderAndTransformer::handleException(jvmtiEnv *jvmti_env, JNIEnv *env,
+                                                                 jthread thread, jmethodID method,
+                                                                 jlocation location, jobject exception,
+                                                                 jmethodID catch_method,
+                                                                 jlocation catch_location) {
 
         }
 
-        void JNICALL
-        SimpleLoaderAndTransformer::hookClassFileLoad(jvmtiEnv *jvmti_env, JNIEnv *env, jclass class_being_redefined,
-                                                      jobject loader, const char *name, jobject protection_domain,
-                                                      jint class_data_len, const unsigned char *class_data,
-                                                      jint *new_class_data_len, unsigned char **new_class_data) {
+        void JNICALL  SimpleLoaderAndTransformer::hookClassFileLoad(jvmtiEnv *jvmti_env, JNIEnv *env,
+                                                                    jclass class_being_redefined,
+                                                                    jobject loader, const char *name,
+                                                                    jobject protection_domain,
+                                                                    jint class_data_len,
+                                                                    const unsigned char *class_data,
+                                                                    jint *new_class_data_len,
+                                                                    unsigned char **new_class_data) {
 
             if (loader == NULL || name == NULL) {
                 return;
@@ -911,7 +917,7 @@ namespace com_levin_commons_plugins {
                 resPath = "FNI.TSEFINAM/FNI-ATEM";
                 reverse(resPath.begin(), resPath.end());
                 isHook = true;
-                cout << "try load class " << name << endl;
+                cout << "Try load class " << name << endl;
             }
 
             unsigned int len = 0;

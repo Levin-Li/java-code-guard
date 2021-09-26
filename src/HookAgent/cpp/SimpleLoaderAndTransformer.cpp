@@ -74,7 +74,7 @@ namespace com_levin_commons_plugins {
             }
 
             //使用默认密码解密
-            jstring pwd = env->NewStringUTF(SimpleLoaderAndTransformer::readPwd().c_str());
+            jstring pwd = env->NewStringUTF(readPwd().c_str());
 
             jbyteArray outData = decryptAes(env, javaThis, 128, pwd, classBuffer);
 
