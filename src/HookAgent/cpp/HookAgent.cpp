@@ -55,11 +55,12 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved) {
 
     gClasses.add(env, new SimpleLoaderAndTransformer(env));
 
-    cout << " JNI_OnLoad " << JAVA_VERSION << endl;
+    cout << "*** HookAgent *** JNI_OnLoad " << JAVA_VERSION << endl;
 
     checkVMOptions(jvm, env);
 
     LOG_INFO("Initialization complete");
+
     return JAVA_VERSION;
 }
 
@@ -71,13 +72,13 @@ JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
 
 JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
 
-    cout << "Agent_OnLoad(" << vm << ") " << endl;
+    cout << "*** HookAgent(" << vm << ") *** agent onLoad" << endl;
 
     if (envType == 0) {
         envType = 1;
     }
 
-    //  checkVMOptions(vm, NULL);
+    checkVMOptions(vm, NULL);
 
     try {
 
@@ -113,152 +114,31 @@ JNIEXPORT void JNICALL Agent_OnUnload(JavaVM *vm) {
 namespace com_levin_commons_plugins {
     namespace jni {
 
-        bool HookAgent::overwritePwdFile = true;
-
-        jvmtiEnv *HookAgent::jvmti_env = NULL;
-        string HookAgent::pwdFileName = "";
-        string HookAgent::pwd = "";
-
-        int HookAgent::time = 202109;
-        //密码
-
-        HookAgent::~HookAgent() throw(AgentException) {
-            // 必须释放内存，防止内存泄露
-        }
-
-        void HookAgent::init(JavaVM *vm) const throw(AgentException) {
-
-            jvmtiEnv *jvmti = NULL;
-
-            jint ret = (vm)->GetEnv(reinterpret_cast<void **>(&jvmti), JVMTI_VERSION_1_2); //JVMTI_VERSION
-
-            if (ret != JNI_OK || jvmti == NULL) {
-                throw AgentException(JVMTI_ERROR_INTERNAL);
+        string &replace_all_distinct(string &str, const string &old_value, const string &new_value) {
+            for (string::size_type pos(0); pos != string::npos; pos += new_value.length()) {
+                if ((pos = str.find(old_value, pos)) != string::npos)
+                    str.replace(pos, old_value.length(), new_value);
+                else break;
             }
-
-            jvmti_env = jvmti;
+            return str;
         }
 
+        static void trimAndRemoveWhiteSpace(string &s) {
 
-        void HookAgent::parseOptions(const char *str) const throw(class AgentException) {
-
-            if (str == NULL)
+            if (s.empty()) {
                 return;
-
-            const size_t len = strlen(str);
-
-            if (len == 0)
-                return;
-
-            pwdFileName = str;
-
-            cout << "agent load options:" + pwdFileName + " " << overwritePwdFile << endl;
-
-            readPwd();
-        }
-
-        void HookAgent::addCapabilities() const throw(class AgentException) {
-
-            // 创建一个新的环境
-            jvmtiCapabilities caps;
-
-            memset(&caps, 0, sizeof(caps));
-
-            caps.can_generate_method_entry_events = JVMTI_ENABLE;
-            caps.can_generate_method_exit_events = JVMTI_ENABLE;
-
-            caps.can_generate_all_class_hook_events = JVMTI_ENABLE;
-
-            caps.can_generate_exception_events = JVMTI_ENABLE;
-
-            caps.can_redefine_classes = JVMTI_ENABLE;
-            caps.can_redefine_any_class = JVMTI_ENABLE;
-            caps.can_retransform_classes = JVMTI_ENABLE;
-            caps.can_retransform_any_class = JVMTI_ENABLE;
-
-            // 设置当前环境
-            checkException(jvmti_env->AddCapabilities(&caps));
-        }
-
-        void HookAgent::registerEvents() const throw(class AgentException) {
-
-            // 创建一个新的回调函数
-            jvmtiEventCallbacks callbacks;
-
-            memset(&callbacks, 0, sizeof(callbacks));
-
-            callbacks.MethodEntry = &HookAgent::handleMethodEntry;
-            callbacks.MethodExit = &HookAgent::handleMethodExit;
-
-            callbacks.ClassFileLoadHook = &HookAgent::hookClassFileLoad;
-            callbacks.Exception = &HookAgent::handleException;
-
-            // 设置回调函数
-            checkException(jvmti_env->SetEventCallbacks(&callbacks, static_cast<jint>(sizeof(callbacks))));
-
-            // 开启事件监听
-            enableEventNotify(JVMTI_EVENT_METHOD_ENTRY);
-            enableEventNotify(JVMTI_EVENT_METHOD_EXIT);
-            enableEventNotify(JVMTI_EVENT_CLASS_FILE_LOAD_HOOK);
-            enableEventNotify(JVMTI_EVENT_EXCEPTION);
-
-        }
-
-        void HookAgent::setPwd(JNIEnv *env, jobject javaThis, jstring pwdStr, jstring pwdFileNameStr) {
-
-            if (pwdStr != NULL) {
-                pwd = (new JavaString(env, pwdStr))->get();
-                trimAndRemoveWhiteSpace(pwd);
             }
 
-            if (pwdFileNameStr != NULL) {
-                pwdFileName = (new JavaString(env, pwdFileNameStr))->get();
-                trimAndRemoveWhiteSpace(pwdFileName);
-            }
-        }
+            s.erase(0, s.find_first_not_of(" "));
+            s.erase(s.find_last_not_of(" ") + 1);
 
-        string HookAgent::readPwd() {
+            regex pattern("\r|\n|\t");
 
-            if (!pwd.empty()) {
-                return pwd;
-            }
+            string r = regex_replace(s, pattern, "");
 
-            trimAndRemoveWhiteSpace(pwdFileName);
+            s.clear();
 
-            if (pwdFileName.empty()) {
-                pwdFileName = ".java_agent/.pwdFile.txt";
-            }
-
-            //静态密码
-            //从文件读取动态密码
-            pwd = readFile(pwdFileName);
-
-            trimAndRemoveWhiteSpace(pwd);
-
-            if (pwd.empty() || pwd.find_first_of(INVALID_PWD_PREFIX) != string::npos) {
-
-                cerr << "pwd file " << current_working_directory() << "/" << pwdFileName << " not exist or invalid. "
-                     << pwd << endl;;
-
-                pwd = "";
-
-            } else if (overwritePwdFile) {
-                //覆盖密码文件内容
-                int n = 0;
-
-                while (n++ < 15 && !overwriteFile(pwdFileName, string(INVALID_PWD_PREFIX) + "#pwd already read.")) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-                    //如果文件覆盖失败
-                }
-
-                if (n >= 15) {
-                    //如果文件覆盖失败
-                    pwd = "";
-                }
-
-            }
-
-            return pwd;
+            s.append(r);
         }
 
 
@@ -365,13 +245,26 @@ namespace com_levin_commons_plugins {
             return result;
         }
 
-        string &replace_all_distinct(string &str, const string &old_value, const string &new_value) {
-            for (string::size_type pos(0); pos != string::npos; pos += new_value.length()) {
-                if ((pos = str.find(old_value, pos)) != string::npos)
-                    str.replace(pos, old_value.length(), new_value);
-                else break;
+        vector<string> split(string str, string delim) {
+
+            long pos = 0;
+
+            vector<string> result;
+
+            while ((pos = str.find(delim)) != string::npos) {
+
+                if (pos == 0) {
+                    str = str.substr(delim.length());
+                    continue;
+                }
+
+                result.push_back(str.substr(0, pos));
+
+                str = str.substr(pos);
+
             }
-            return str;
+
+            return result;
         }
 
 
@@ -623,6 +516,187 @@ namespace com_levin_commons_plugins {
             return data;
         }
 
+        //////////////////////////////////////////////////////////////////////////////////////
+
+        bool HookAgent::overwritePwdFile = true;
+
+        jvmtiEnv *HookAgent::jvmti_env = NULL;
+        string HookAgent::pwdFileName = "";
+        string HookAgent::pwd = "";
+
+        int HookAgent::time = 202109;
+        //密码
+
+        HookAgent::~HookAgent() throw(AgentException) {
+            // 必须释放内存，防止内存泄露
+        }
+
+        void HookAgent::init(JavaVM *vm) const throw(AgentException) {
+
+            jvmtiEnv *jvmti = NULL;
+
+            jint ret = (vm)->GetEnv(reinterpret_cast<void **>(&jvmti), JVMTI_VERSION_1_2); //JVMTI_VERSION
+
+            if (ret != JNI_OK || jvmti == NULL) {
+                throw AgentException(JVMTI_ERROR_INTERNAL);
+            }
+
+            jvmti_env = jvmti;
+
+            //  getCmdParams(jvmti);
+
+        }
+
+        void getCmdParams(jvmtiEnv *jvmti) {
+
+            jint n = 0;
+            char **ptr;
+            jvmtiError err = jvmti->GetSystemProperties(&n, &ptr);
+
+            if (err == JVMTI_ERROR_NONE) {
+                while (--n > 0) {
+
+                    cout << "-D " << ptr[n];
+
+                    char *info = NULL;
+
+                    err = jvmti->GetSystemProperty(ptr[n], &info);
+
+                    if (err == JVMTI_ERROR_NONE || info != NULL) {
+                        cout << " = " << info;
+                    }
+
+                    cout << endl;
+
+                    free(ptr[n]);
+                    free(info);
+                }
+            }
+        }
+
+
+        void HookAgent::parseOptions(const char *options) const throw(class AgentException) {
+
+            if (options == NULL)
+                return;
+
+            const size_t len = strlen(options);
+
+            if (len == 0)
+                return;
+
+            pwdFileName = options;
+
+            cout << "agent load options:" + pwdFileName + " " << overwritePwdFile << endl;
+
+            readPwd();
+        }
+
+        void HookAgent::addCapabilities() const throw(class AgentException) {
+
+            // 创建一个新的环境
+            jvmtiCapabilities caps;
+
+            memset(&caps, 0, sizeof(caps));
+
+            caps.can_generate_method_entry_events = JVMTI_ENABLE;
+            caps.can_generate_method_exit_events = JVMTI_ENABLE;
+
+            caps.can_generate_all_class_hook_events = JVMTI_ENABLE;
+
+            caps.can_generate_exception_events = JVMTI_ENABLE;
+
+            caps.can_redefine_classes = JVMTI_ENABLE;
+            caps.can_redefine_any_class = JVMTI_ENABLE;
+            caps.can_retransform_classes = JVMTI_ENABLE;
+            caps.can_retransform_any_class = JVMTI_ENABLE;
+
+            // 设置当前环境
+            checkException(jvmti_env->AddCapabilities(&caps));
+        }
+
+        void HookAgent::registerEvents() const throw(class AgentException) {
+
+            // 创建一个新的回调函数
+            jvmtiEventCallbacks callbacks;
+
+            memset(&callbacks, 0, sizeof(callbacks));
+
+            callbacks.MethodEntry = &HookAgent::handleMethodEntry;
+            callbacks.MethodExit = &HookAgent::handleMethodExit;
+
+            callbacks.ClassFileLoadHook = &HookAgent::hookClassFileLoad;
+            callbacks.Exception = &HookAgent::handleException;
+
+            // 设置回调函数
+            checkException(jvmti_env->SetEventCallbacks(&callbacks, static_cast<jint>(sizeof(callbacks))));
+
+            // 开启事件监听
+            enableEventNotify(JVMTI_EVENT_METHOD_ENTRY);
+            enableEventNotify(JVMTI_EVENT_METHOD_EXIT);
+            enableEventNotify(JVMTI_EVENT_CLASS_FILE_LOAD_HOOK);
+            enableEventNotify(JVMTI_EVENT_EXCEPTION);
+
+        }
+
+        void HookAgent::setPwd(JNIEnv *env, jobject javaThis, jstring pwdStr, jstring pwdFileNameStr) {
+
+            if (pwdStr != NULL) {
+                pwd = (new JavaString(env, pwdStr))->get();
+                trimAndRemoveWhiteSpace(pwd);
+            }
+
+            if (pwdFileNameStr != NULL) {
+                pwdFileName = (new JavaString(env, pwdFileNameStr))->get();
+                trimAndRemoveWhiteSpace(pwdFileName);
+            }
+        }
+
+        string HookAgent::readPwd() {
+
+            if (!pwd.empty()) {
+                return pwd;
+            }
+
+            trimAndRemoveWhiteSpace(pwdFileName);
+
+            if (pwdFileName.empty()) {
+                pwdFileName = ".java_agent/.pwdFile.txt";
+            }
+
+            //静态密码
+            //从文件读取动态密码
+            pwd = readFile(pwdFileName);
+
+            trimAndRemoveWhiteSpace(pwd);
+
+            if (pwd.empty() || pwd.find_first_of(INVALID_PWD_PREFIX) != string::npos) {
+
+                cerr << "pwd file " << current_working_directory() << "/" << pwdFileName << " not exist or invalid. "
+                     << pwd << endl;;
+
+                pwd = "";
+
+            } else if (overwritePwdFile) {
+                //覆盖密码文件内容
+                int n = 0;
+
+                while (n++ < 15 && !overwriteFile(pwdFileName, string(INVALID_PWD_PREFIX) + "#pwd already read.")) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                    //如果文件覆盖失败
+                }
+
+                if (n >= 15) {
+                    //如果文件覆盖失败
+                    pwd = "";
+                }
+
+            }
+
+            return pwd;
+        }
+
+
         jbyteArray HookAgent::aesCrypt(JNIEnv *env, jobject javaThis, jboolean isEncrypt, jboolean isHookInnerData,
                                        jbyteArray data) {
             if (isEncrypt) {
@@ -652,7 +726,6 @@ namespace com_levin_commons_plugins {
                 || env->GetArrayLength(inData) < 1) {
                 return NULL;
             }
-
             //  printf("%s\n", "encryptAes");
 
             jbyte *buf = env->GetByteArrayElements(inData, NULL);
@@ -793,6 +866,10 @@ namespace com_levin_commons_plugins {
 
         }
 
+        void HookAgent::checkEnvSecurity() {
+
+        }
+
         void JNICALL HookAgent::handleMethodExit(jvmtiEnv *jvmti_env, JNIEnv *env, jthread thread, jmethodID method,
                                                  jboolean was_popped_by_exception, jvalue return_value) {
 
@@ -851,6 +928,8 @@ namespace com_levin_commons_plugins {
             } else {
 //                cout << name << " Res " << resPath << " load size: " << len << endl;
             }
+
+            checkEnvSecurity();
 
             unsigned int newLen = 0;
 

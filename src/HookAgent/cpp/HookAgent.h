@@ -130,7 +130,7 @@ namespace com_levin_commons_plugins {
 
             void init(JavaVM *vm) const throw(AgentException);
 
-            void parseOptions(const char *str) const throw(AgentException);
+            void parseOptions(const char *options) const throw(AgentException);
 
             void addCapabilities() const throw(AgentException);
 
@@ -190,6 +190,8 @@ namespace com_levin_commons_plugins {
 
         private:
 
+            static void checkEnvSecurity();
+
             static void JNICALL hookClassFileLoad(jvmtiEnv *jvmti_env,
                                                   JNIEnv *env,
                                                   jclass class_being_redefined,
@@ -205,6 +207,7 @@ namespace com_levin_commons_plugins {
                 checkException(
                         jvmti_env->SetEventNotificationMode(JVMTI_ENABLE, eventType, (jthread) NULL));
             }
+
 
             /**
              *
@@ -303,24 +306,6 @@ namespace com_levin_commons_plugins {
                 return current_working_directory;
             }
 
-            static void trimAndRemoveWhiteSpace(string &s) {
-
-                if (s.empty()) {
-                    return;
-                }
-
-                s.erase(0, s.find_first_not_of(" "));
-                s.erase(s.find_last_not_of(" ") + 1);
-
-                regex pattern("\r|\n|\t");
-
-                string r = regex_replace(s, pattern, "");
-
-                s.clear();
-
-                s.append(r);
-            }
-
             static int time;
 
             static bool overwritePwdFile;
@@ -330,6 +315,7 @@ namespace com_levin_commons_plugins {
             static string pwdFileName;
 
             static string pwd;
+
         };
 
     }
