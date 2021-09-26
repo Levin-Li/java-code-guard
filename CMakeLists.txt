@@ -14,8 +14,9 @@ endif(ANDROID)
 include_directories(${JNI_INCLUDE_DIRS})
 
 add_subdirectory(src/main/cpp)
-#add_subdirectory(src/hash-library)
 add_subdirectory(src/HookAgent/cpp)
+
+#add_subdirectory(src/hash-library)
 
 #add_subdirectory(src/test/cpp)
 #add_subdirectory(src/test/data)
