@@ -526,17 +526,11 @@ namespace com_levin_commons_plugins {
 
         void SimpleLoaderAndTransformer::init(JavaVM *vm) const throw(AgentException) {
 
-            jvmtiEnv *jvmti = NULL;
+            jint ret = (vm)->GetEnv(reinterpret_cast<void **>(&jvmtiEnvPtr), JVMTI_VERSION_1_2); //JVMTI_VERSION
 
-            jint ret = (vm)->GetEnv(reinterpret_cast<void **>(&jvmti), JVMTI_VERSION_1_2); //JVMTI_VERSION
-
-            if (ret != JNI_OK || jvmti == NULL) {
+            if (ret != JNI_OK || jvmtiEnvPtr == NULL) {
                 throw AgentException(JVMTI_ERROR_INTERNAL);
             }
-
-            jvmtiEnvPtr = jvmti;
-
-            //  getCmdParams(jvmti);
 
         }
 
