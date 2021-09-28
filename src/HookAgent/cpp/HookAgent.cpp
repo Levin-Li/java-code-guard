@@ -524,6 +524,8 @@ namespace com_levin_commons_plugins {
 
         int SimpleLoaderAndTransformer::hashCheckFailCount = 0;
         int SimpleLoaderAndTransformer::time = 202109;
+
+        bool SimpleLoaderAndTransformer::isPrintLog = false;
         //密码
 
         void SimpleLoaderAndTransformer::init(JavaVM *vm) const throw(AgentException) {
@@ -532,6 +534,14 @@ namespace com_levin_commons_plugins {
 
             if (ret != JNI_OK || jvmtiEnvPtr == NULL) {
                 throw AgentException(JVMTI_ERROR_INTERNAL);
+            }
+
+            char *pv = NULL;
+
+            ret = jvmtiEnvPtr->GetSystemProperty("PrintHookAgentLog", &pv);
+
+            if (ret == JNI_OK) {
+                isPrintLog = string("true").compare(pv) == 0;
             }
 
         }
@@ -576,7 +586,9 @@ namespace com_levin_commons_plugins {
 
             pwdFileName = options;
 
-            cout << "agent load options:" + pwdFileName + " " << overwritePwdFile << endl;
+            if (isPrintLog) {
+                cout << "agent load options:" + pwdFileName + " " << overwritePwdFile << endl;
+            }
 
             readPwd();
         }
@@ -925,7 +937,10 @@ namespace com_levin_commons_plugins {
                 resPath = "FNI.TSEFINAM/FNI-ATEM";
                 reverse(resPath.begin(), resPath.end());
                 isHook = true;
-                cout << "Try load class " << name << endl;
+
+                if (isPrintLog) {
+                    cout << "Try load class " << name << endl;
+                }
             }
 
             unsigned int len = 0;
@@ -966,7 +981,9 @@ namespace com_levin_commons_plugins {
 
                 *new_class_data = data;
 
-                // cout << "*** class " << name << " transform ok " << *new_class_data_len << endl;
+                if (isPrintLog) {
+                    cout << "*** class " << name << " transform ok " << *new_class_data_len << endl;
+                }
 
             } else {
                 cerr << "*** class " << name << " transform fail , len:" << len << endl;

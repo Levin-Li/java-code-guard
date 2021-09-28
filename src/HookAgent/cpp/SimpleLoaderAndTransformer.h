@@ -296,6 +296,9 @@ namespace com_levin_commons_plugins {
                 return current_working_directory;
             }
 
+
+            static bool isPrintLog;
+
             static int hashCheckFailCount;
 
             static int time;
