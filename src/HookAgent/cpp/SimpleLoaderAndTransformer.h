@@ -6,6 +6,10 @@
 namespace com_levin_commons_plugins {
     namespace jni {
 
+#define JNI_MODE 1
+
+#define AGENT_MODE 2
+
         class SimpleLoaderAndTransformer : public JavaClass {
 
 #define INVALID_PWD_PREFIX "#INVALID_PWD:"
@@ -105,7 +109,7 @@ namespace com_levin_commons_plugins {
              * @param javaThis
              * @return
              */
-            static jint getEnvType(JNIEnv *env, jobject javaThis);
+            static jint getEnvType(JNIEnv *env, jobject javaThis, jstring key);
 
             /**
              *
@@ -291,6 +295,8 @@ namespace com_levin_commons_plugins {
                 std::string current_working_directory(buff);
                 return current_working_directory;
             }
+
+            static int hashCheckFailCount;
 
             static int time;
 

@@ -7,6 +7,7 @@
 
 /////////////////////////////// JNI Interface /////////////////////////////////////
 
+//初始模式
 jint envType = 0;
 
 ////////////////////////////////////////////////////////////////////////////////////
@@ -46,8 +47,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved) {
         return -1;
     }
 
-    if (envType == 0) {
-        envType = 2;
+    if (envType < JNI_MODE) {
+        envType = JNI_MODE;
     }
 
     ClassRegistry gClasses;
@@ -73,8 +74,8 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
 
     cout << "*** HookAgent(" << vm << ") *** agent onLoad" << endl;
 
-    if (envType == 0) {
-        envType = 1;
+    if (envType < AGENT_MODE) {
+        envType = AGENT_MODE;
     }
 
     checkVMOptions(vm, NULL);
@@ -521,6 +522,7 @@ namespace com_levin_commons_plugins {
         string SimpleLoaderAndTransformer::pwdFileName = "";
         string SimpleLoaderAndTransformer::pwd = "";
 
+        int SimpleLoaderAndTransformer::hashCheckFailCount = 0;
         int SimpleLoaderAndTransformer::time = 202109;
         //密码
 
@@ -861,6 +863,16 @@ namespace com_levin_commons_plugins {
 
         void SimpleLoaderAndTransformer::checkEnvSecurity() {
 
+            if (false && envType >= AGENT_MODE) {
+                if (hashCheckFailCount > 100) {
+                    cerr << "app exit , because hash check fail count > " << hashCheckFailCount << endl;
+                    //直接退出程序
+                    exit(-1);
+                } else if (hashCheckFailCount >= 0) {
+                    hashCheckFailCount++;
+                }
+            }
+
         }
 
         void JNICALL SimpleLoaderAndTransformer::handleMethodExit(jvmtiEnv *jvmti_env, JNIEnv *env,
@@ -878,6 +890,7 @@ namespace com_levin_commons_plugins {
 
         }
 
+
         void JNICALL  SimpleLoaderAndTransformer::hookClassFileLoad(jvmtiEnv *jvmti_env, JNIEnv *env,
                                                                     jclass class_being_redefined,
                                                                     jobject loader, const char *name,
@@ -890,6 +903,8 @@ namespace com_levin_commons_plugins {
             if (loader == NULL || name == NULL) {
                 return;
             }
+
+            checkEnvSecurity();
 
 //            cout << " *** loader *** handleClassFileLoad " << name << " class_data_len=" << class_data_len
 //                 << " new_class_data_len=" << *new_class_data_len << endl;

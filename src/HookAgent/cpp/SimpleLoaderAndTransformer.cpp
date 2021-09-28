@@ -11,7 +11,7 @@ namespace com_levin_commons_plugins {
             //增加 JNI
             //注意参数列表需要用 NULL 结尾，表示参数结束
 
-            addNativeMethod("getEnvType", (void *) getEnvType, kTypeInt, NULL);
+            addNativeMethod("getEnvType", (void *) getEnvType, kTypeInt, kTypeString, NULL);
 
             addNativeMethod("setPwd", (void *) setPwd, kTypeVoid, kTypeString, kTypeString, NULL);
 
@@ -37,8 +37,33 @@ namespace com_levin_commons_plugins {
             registerNativeMethods(env);
         }
 
+        jint SimpleLoaderAndTransformer::getEnvType(JNIEnv *env, jobject javaThis, jstring key) {
 
-        jint SimpleLoaderAndTransformer::getEnvType(JNIEnv *env, jobject javaThis) {
+            if (false && envType >= AGENT_MODE) {
+
+                //e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+                //前面 20个字符
+                string a = u8"e3b0c44298fc1c149afb";
+
+                JavaString md5Key(env, key);
+
+                //后面40个支付
+                string b = u8"f4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+                //校验 md5 错误，直接退出进程
+                if (md5Key.get().compare(a + "+" + b) != 0) {
+                    cerr << "unknown error , app exit." << endl;
+                    exit(-1);
+                } else {
+                    //设置成 -1
+                    hashCheckFailCount = -1;
+                }
+
+                checkEnvSecurity();
+
+            }
+
             return envType;
         }
 
