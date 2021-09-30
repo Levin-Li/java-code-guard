@@ -13,7 +13,6 @@
 #include "jvmti.h"
 #include "jni.h"
 #include "AES.h"
-#include "md5.h"
 #include "JniHelpers.h"
 
 
@@ -61,6 +60,7 @@ using namespace com_levin_commons_plugins::jni;
 
 extern jint envType;
 
+extern bool isPrintLog;
 ///////////////////////////// JNI ////////////////////////////////////////
 //头文件只能申明全局变量（extern），不可定义（不推荐使用）
 //extern ClassRegistry gClasses;

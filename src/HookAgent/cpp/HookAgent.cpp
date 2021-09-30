@@ -10,6 +10,8 @@
 //初始模式
 jint envType = 0;
 
+bool isPrintLog = false;
+
 ////////////////////////////////////////////////////////////////////////////////////
 void checkVMOptions(JavaVM *jvm, JNIEnv *env) {
 
@@ -140,6 +142,13 @@ namespace com_levin_commons_plugins {
 
         }
 
+        static bool startsWith(string str, string keyword) {
+
+            unsigned long idx = str.find(keyword, 0);
+
+            return idx != string::npos && idx == 0;
+        }
+
 
 //        3、异常处理的相关JNI函数总结：
 //        1> ExceptionCheck：检查是否发生了异常，若有异常返回JNI_TRUE，否则返回JNI_FALSE
@@ -191,6 +200,35 @@ namespace com_levin_commons_plugins {
             return result;
         }
 
+
+        string getExceptionInfo(JNIEnv *env, jboolean isClear) {
+
+            if (!env->ExceptionCheck()) {
+                return "";
+            }
+
+            jthrowable ex = env->ExceptionOccurred();
+
+            if (ex == NULL) {
+                return "";
+            }
+
+            jstring jinfo = (jstring) invoke(env, ex, "toString", "()Ljava/lang/String;");
+
+            env->DeleteLocalRef(ex);
+
+            string info = JavaString(env, jinfo).get();
+
+            env->DeleteLocalRef(jinfo);
+
+            if (isClear) {
+                env->ExceptionClear();
+            }
+
+            return info;
+        }
+
+
         jint invokeInt(JNIEnv *env, jobject instance, const char *methodName, const char *methodSign, ...) {
 
             jclass clazz = env->GetObjectClass(instance);
@@ -219,10 +257,7 @@ namespace com_levin_commons_plugins {
             return result;
         }
 
-
-        jobject invokeStatic(JNIEnv *env, const char *className, const char *methodName, const char *methodSign, ...) {
-
-            jclass clazz = env->FindClass(className);
+        jobject invokeStatic(JNIEnv *env, jclass clazz, const char *methodName, const char *methodSign, ...) {
 
             if (clazz == NULL) {
                 return NULL;
@@ -238,6 +273,22 @@ namespace com_levin_commons_plugins {
                 result = env->CallStaticObjectMethodV(clazz, jmethodId, args);
                 va_end(args);
             }
+
+            return result;
+        }
+
+        jobject invokeStatic(JNIEnv *env, const char *className, const char *methodName, const char *methodSign, ...) {
+
+            jclass clazz = env->FindClass(className);
+
+            if (clazz == NULL) {
+                return NULL;
+            }
+
+            va_list args;
+            va_start(args, methodSign);
+            jobject result = invokeStatic(env, clazz, methodName, methodSign, args);
+            va_end(args);
 
             env->DeleteLocalRef(clazz);
 
@@ -289,6 +340,39 @@ namespace com_levin_commons_plugins {
             }
 
             return loader;
+        }
+
+
+        jclass loadClass(JNIEnv *env, jobject loader, const char *classNamePtr) {
+
+            jclass result = NULL;
+
+            string clsName(classNamePtr);
+
+            clsName = replace_all_distinct(clsName, "/", ".");
+
+            jstring cName = env->NewStringUTF(clsName.c_str());
+
+            jobject newLoader = getClassLoader(env, loader);
+
+            if (newLoader != NULL) {
+                result = (jclass) invoke(env, newLoader, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;", cName);
+            }
+
+            env->DeleteLocalRef(cName);
+
+            if (loader != newLoader) {
+                env->DeleteLocalRef(newLoader);
+            }
+
+            if (env->ExceptionCheck() && isPrintLog) {
+                cout << " load class " << classNamePtr << " handle exception , " << getExceptionInfo(env, true) << endl;
+            }
+
+            //清除异常
+            env->ExceptionClear();
+
+            return result;
         }
 
         unsigned char *autoNew(unsigned char *data, const size_t requireLen) {
@@ -457,6 +541,7 @@ namespace com_levin_commons_plugins {
 
             if (inputStream == NULL) {
                 // cout << "class path res " << resName << " --> " << resPath << " can't found." << endl;
+
                 return NULL;
             }
 
@@ -525,7 +610,8 @@ namespace com_levin_commons_plugins {
         int SimpleLoaderAndTransformer::hashCheckFailCount = 0;
         int SimpleLoaderAndTransformer::time = 202109;
 
-        bool SimpleLoaderAndTransformer::isPrintLog = false;
+
+        bool SimpleLoaderAndTransformer::isHookClassReady = false;
         //密码
 
         void SimpleLoaderAndTransformer::init(JavaVM *vm) const throw(AgentException) {
@@ -859,7 +945,7 @@ namespace com_levin_commons_plugins {
 
             JavaString cName(env, className);
 
-            if (cName.get().find_first_of("com.vma.") != 0) {
+            if (cName.get().find_first_of("com.levin.") != 0) {
                 return;
             }
 
@@ -912,28 +998,34 @@ namespace com_levin_commons_plugins {
                                                                     jint *new_class_data_len,
                                                                     unsigned char **new_class_data) {
 
-            if (loader == NULL || name == NULL) {
+            if (name == NULL || loader == NULL) {
+                return;
+            }
+
+            const string cName = name;
+
+            if (startsWith(cName, "java/")
+                || startsWith(cName, "javax/")
+                || startsWith(cName, "jdk/")
+                || startsWith(cName, "org/springframework/")) {
                 return;
             }
 
             checkEnvSecurity();
 
-//            cout << " *** loader *** handleClassFileLoad " << name << " class_data_len=" << class_data_len
-//                 << " new_class_data_len=" << *new_class_data_len << endl;
+            string tempName(name);
 
-            string cName(name);
+            string resPath = "META-INF/.cache_data/" + cName + ".class";
 
-            MD5 *md5 = new MD5("C" + replace_all_distinct(cName, "/", "."));
-
-            string resPath = "META-INF/.cache_data/" + md5->toStr() + ".dat";
-
-            delete md5;
-
+            unsigned int len = 0;
+            unsigned char *data = NULL;
             bool isHook = false;
 
-            cName = replace_all_distinct(cName, ".", "/");
+            bool isHookPackage = startsWith(cName, PACKAGE);
 
             if (cName.compare(HOOK_CLASS) == 0) {
+                //com/levin/commons/plugins/jni/HookAgent
+
                 resPath = "FNI.TSEFINAM/FNI-ATEM";
                 reverse(resPath.begin(), resPath.end());
                 isHook = true;
@@ -941,13 +1033,59 @@ namespace com_levin_commons_plugins {
                 if (isPrintLog) {
                     cout << "Try load class " << name << endl;
                 }
+
+                data = loadResource(env, loader, name, resPath.c_str(), false, len);
+
+            } else if (isHookClassReady && !isHookPackage) {
+
+                jclass newHookClass = loadClass(env, NULL, HOOK_CLASS);
+
+                if (isPrintLog) {
+//                    cout << "*** hookClassReady load class " << name << " , " << getExceptionInfo(env, true)
+//                         << "  resPath:"
+//                         << resPath << " old len:" << class_data_len << " newHookClass:" << newHookClass << endl;
+                }
+
+                if (newHookClass == NULL) {
+                    env->ExceptionClear();
+                    return;
+                }
+
+                jstring jResPath = env->NewStringUTF(name);
+
+                //如果 hook
+                jbyteArray buf = (jbyteArray) invokeStatic(env, newHookClass, "loadEncryptedRes",
+                                                           "(Ljava/lang/ClassLoader;Ljava/lang/String;)[B",
+                                                           NULL, jResPath);
+
+                if (buf != NULL) {
+                    data = (unsigned char *) (new ByteArray(env, buf))->leak();
+                    len = env->GetArrayLength(buf);
+                }
+
+                env->DeleteLocalRef(newHookClass);
+                env->DeleteLocalRef(jResPath);
+                env->DeleteLocalRef(buf);
+
+            } else if (!isHookPackage) {
+
+                data = loadResource(env, loader, name, resPath.c_str(), false, len);
+
+            } else {
+
+                if (class_data_len <= 0) {
+                    cout << "*** HookPackage class " << name << " , " << getExceptionInfo(env, true) << "  resPath:"
+                         << resPath << "   len:" << class_data_len << endl;
+                }
+
+                return;
             }
 
-            unsigned int len = 0;
-
-            unsigned char *data = loadResource(env, loader, name, resPath.c_str(), false, len);
-
             if (env->ExceptionCheck()) {
+                if (isPrintLog) {
+                    cout << "*** error load class " << name << " , " << getExceptionInfo(env, true) << "  old len:"
+                         << class_data_len << endl;
+                }
                 //忽略资源加载异常
                 //  cerr << name << " **** handle exception **** " << endl;
                 //  env->Throw(env->ExceptionOccurred());
@@ -955,12 +1093,18 @@ namespace com_levin_commons_plugins {
             }
 
             if (data == NULL) {
+                if (isPrintLog) {
+//                    cout << "*** can't load class " << name << " --> " << resPath << " hookClass: "
+//                         << isHookClassReady << " old len:" << class_data_len
+//                         << endl;
+                }
                 return;
             } else {
-//                cout << name << " Res " << resPath << " load size: " << len << endl;
+                if (isPrintLog) {
+//                    cout << "*** new class " << name << " , " << getExceptionInfo(env, true) << "  resPath:"
+//                         << resPath << " new len:" << len << endl;
+                }
             }
-
-            checkEnvSecurity();
 
             unsigned int newLen = 0;
 
@@ -980,6 +1124,10 @@ namespace com_levin_commons_plugins {
                 *new_class_data_len = newLen;
 
                 *new_class_data = data;
+
+                if (!isHookClassReady) {
+                    isHookClassReady = isHook;
+                }
 
                 if (isPrintLog) {
                     cout << "*** class " << name << " transform ok " << *new_class_data_len << endl;
