@@ -1007,6 +1007,8 @@ namespace com_levin_commons_plugins {
             //默认 JDK ，spring 不进行加载
             if (startsWith(cName, "java/")
                 || startsWith(cName, "javax/")
+                || startsWith(cName, "sun/")
+                || startsWith(cName, "com/sun/")
                 || startsWith(cName, "jdk/")
                 || startsWith(cName, "org/springframework/")) {
                 return;
