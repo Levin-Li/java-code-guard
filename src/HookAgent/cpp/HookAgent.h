@@ -13,6 +13,8 @@
 #include "jvmti.h"
 #include "jni.h"
 #include "AES.h"
+#include "md5.h"
+
 #include "JniHelpers.h"
 
 

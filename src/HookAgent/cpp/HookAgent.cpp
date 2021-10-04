@@ -1004,6 +1004,7 @@ namespace com_levin_commons_plugins {
 
             const string cName = name;
 
+            //默认 JDK ，spring 不进行加载
             if (startsWith(cName, "java/")
                 || startsWith(cName, "javax/")
                 || startsWith(cName, "jdk/")
@@ -1015,7 +1016,11 @@ namespace com_levin_commons_plugins {
 
             string tempName(name);
 
-            string resPath = "META-INF/.cache_data/" + cName + ".class";
+            MD5 key("RES_" + replace_all_distinct(tempName, "/", "."));
+
+            string resPath = "META-INF/.cache_data/" + key.toStr() + ".dat";
+
+            //delete key;
 
             unsigned int len = 0;
             unsigned char *data = NULL;
@@ -1054,7 +1059,7 @@ namespace com_levin_commons_plugins {
                 jstring jResPath = env->NewStringUTF(name);
 
                 //如果 hook
-                jbyteArray buf = (jbyteArray) invokeStatic(env, newHookClass, "loadEncryptedRes",
+                jbyteArray buf = (jbyteArray) invokeStatic(env, newHookClass, "loadEncryptedClass",
                                                            "(Ljava/lang/ClassLoader;Ljava/lang/String;)[B",
                                                            NULL, jResPath);
 
@@ -1069,13 +1074,14 @@ namespace com_levin_commons_plugins {
 
             } else if (!isHookPackage) {
 
+                //如果 hook agent 类还没加载
                 data = loadResource(env, loader, name, resPath.c_str(), false, len);
 
             } else {
 
                 if (class_data_len <= 0) {
-                    cout << "*** HookPackage class " << name << " , " << getExceptionInfo(env, true) << "  resPath:"
-                         << resPath << "   len:" << class_data_len << endl;
+                    cerr << "***  class " << name << " is empty , " << getExceptionInfo(env, true) << "  resPath:"
+                         << resPath << " len:" << class_data_len << endl;
                 }
 
                 return;
