@@ -719,10 +719,10 @@ namespace com_levin_commons_plugins {
             checkException(jvmtiEnvPtr->SetEventCallbacks(&callbacks, static_cast<jint>(sizeof(callbacks))));
 
             // 开启事件监听
-            enableEventNotify(JVMTI_EVENT_METHOD_ENTRY);
-            enableEventNotify(JVMTI_EVENT_METHOD_EXIT);
+            //enableEventNotify(JVMTI_EVENT_METHOD_ENTRY);
+            //enableEventNotify(JVMTI_EVENT_METHOD_EXIT);
             enableEventNotify(JVMTI_EVENT_CLASS_FILE_LOAD_HOOK);
-            enableEventNotify(JVMTI_EVENT_EXCEPTION);
+            //enableEventNotify(JVMTI_EVENT_EXCEPTION);
 
         }
 
@@ -1009,7 +1009,9 @@ namespace com_levin_commons_plugins {
                 || startsWith(cName, "javax/")
                 || startsWith(cName, "sun/")
                 || startsWith(cName, "com/sun/")
-                || startsWith(cName, "jdk/")) {
+                || startsWith(cName, "jdk/")
+                || startsWith(cName, "org/springframework/")
+                ) {
                 return;
             }
 
