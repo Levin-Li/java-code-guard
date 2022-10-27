@@ -1009,8 +1009,7 @@ namespace com_levin_commons_plugins {
                 || startsWith(cName, "javax/")
                 || startsWith(cName, "sun/")
                 || startsWith(cName, "com/sun/")
-                || startsWith(cName, "jdk/")
-                || startsWith(cName, "org/springframework/")) {
+                || startsWith(cName, "jdk/")) {
                 return;
             }
 
@@ -1039,11 +1038,19 @@ namespace com_levin_commons_plugins {
 
                 if (isPrintLog) {
                     cout << "Try load class " << name << endl;
-                }
+                } 
+                //data = loadResource(env, loader, name, resPath.c_str(), false, len); 
+            }
 
+
+            if (isHookPackage) { 
+
+                //如果是hook包，尝试加载资源
                 data = loadResource(env, loader, name, resPath.c_str(), false, len);
 
-            } else if (isHookClassReady && !isHookPackage) {
+            }else if (isHookClassReady) {
+
+                //如果是正常包，并且 HookClass 已经准备好
 
                 jclass newHookClass = loadClass(env, NULL, HOOK_CLASS);
 
@@ -1073,11 +1080,6 @@ namespace com_levin_commons_plugins {
                 env->DeleteLocalRef(newHookClass);
                 env->DeleteLocalRef(jResPath);
                 env->DeleteLocalRef(buf);
-
-            } else if (!isHookPackage) {
-
-                //如果 hook agent 类还没加载
-                data = loadResource(env, loader, name, resPath.c_str(), false, len);
 
             } else {
 
