@@ -12,6 +12,7 @@ jint envType = 0;
 
 bool isPrintLog = false;
 
+bool isInit = false;
 ////////////////////////////////////////////////////////////////////////////////////
 void checkVMOptions(JavaVM *jvm, JNIEnv *env) {
 
@@ -43,6 +44,7 @@ void checkVMOptions(JavaVM *jvm, JNIEnv *env) {
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved) {
 
     LOG_INFO("Initializing JNI");
+
     JNIEnv *env = jniHelpersInitialize(jvm);
 
     if (env == NULL) {
@@ -74,7 +76,11 @@ JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
 
 JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
 
-    cout << "*** HookAgent(" << vm << ") *** agent onLoad" << endl;
+    cout << "*** HookAgent(vm:" << vm << ") *** agent onLoad " << endl;
+
+    if(isInit){
+       return JNI_OK;
+    }
 
     if (envType < AGENT_MODE) {
         envType = AGENT_MODE;
@@ -94,8 +100,10 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
 
         agent->registerEvents();
 
+        isInit = true;
+
     } catch (AgentException &e) {
-        cout << "Error when enter HandleMethodEntry: " << e.what() << " [" << e.ErrCode() << "]" << endl;
+        cout << "Error when HookAgent registerEvents" << e.what() << " [" << e.ErrCode() << "]" << endl;
         return JNI_ERR;
     }
 
@@ -745,14 +753,12 @@ namespace com_levin_commons_plugins {
 
             trimAndRemoveWhiteSpace(pwd);
 
-            if (pwd.empty() || pwd.find_first_of(INVALID_PWD_PREFIX) != string::npos) {
-
-                cerr << "pwd file " << current_working_directory() << "/" << pwdFileName << " not exist or invalid. "
-                     << pwd << endl;;
-
+            if (pwd.empty()) {
+                cerr << "Pwd file " << current_working_directory() << "/" << pwdFileName << " not exist or invalid. " << endl;
                 pwd = "";
+            }
 
-            } else if (overwritePwdFile) {
+             if (overwritePwdFile) {
                 //覆盖密码文件内容
                 int n = 0;
 
@@ -765,7 +771,6 @@ namespace com_levin_commons_plugins {
                     //如果文件覆盖失败
                     pwd = "";
                 }
-
             }
 
             return pwd;
@@ -1040,12 +1045,12 @@ namespace com_levin_commons_plugins {
 
                 if (isPrintLog) {
                     cout << "Try load class " << name << endl;
-                } 
-                //data = loadResource(env, loader, name, resPath.c_str(), false, len); 
+                }
+                //data = loadResource(env, loader, name, resPath.c_str(), false, len);
             }
 
 
-            if (isHookPackage) { 
+            if (isHookPackage) {
 
                 //如果是hook包，尝试加载资源
                 data = loadResource(env, loader, name, resPath.c_str(), false, len);
