@@ -8,6 +8,9 @@ namespace com_levin_commons_plugins {
 
             setClass(env);
 
+          if (!isInitialized()) {
+             cerr << "Could not find cached class for " << getCanonicalName() << endl;
+           }
             //增加 JNI
             //注意参数列表需要用 NULL 结尾，表示参数结束
 

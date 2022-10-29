@@ -14,8 +14,9 @@ bool isPrintLog = false;
 
 bool isAgentInit = false;
 
+jclass newHookClass = NULL;
 ClassRegistry gClasses;
-SimpleLoaderAndTransformer jniInstance = NULL;
+SimpleLoaderAndTransformer *jniInstance = NULL;
 ////////////////////////////////////////////////////////////////////////////////////
 void checkVMOptions(JavaVM *jvm, JNIEnv *env) {
 
@@ -62,11 +63,12 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
 
        jniInstance = new SimpleLoaderAndTransformer(env);
 
-       if(!jniInstance.isInitialized()){
-           jniInstance.initialize(env);
+       if(!jniInstance->isInitialized()){
+          jniInstance->initialize(env);
        }
 
        gClasses.add(env, jniInstance);
+
        checkVMOptions(vm, env);
     }
 
@@ -174,7 +176,6 @@ namespace com_levin_commons_plugins {
 //                jint (JNICALL *Throw) (JNIEnv *env, jthrowable obj);
 //        7> FatalError：致命异常，用于输出一个异常信息，并终止当前VM实例（即退出程序）
 //        void (JNICALL *FatalError) (JNIEnv *env, const char *msg);
-
 
         jobject invoke(JNIEnv *env, jobject instance, const char *methodName, const char *methodSign, ...) {
 
@@ -672,7 +673,6 @@ namespace com_levin_commons_plugins {
             }
         }
 
-
         void SimpleLoaderAndTransformer::parseOptions(const char *options) const throw(class AgentException) {
 
             if (options == NULL)
@@ -687,6 +687,12 @@ namespace com_levin_commons_plugins {
 
             if (isPrintLog) {
                 cout << "agent load options:" + pwdFileName + " " << overwritePwdFile << endl;
+            }
+
+             //如果是从标准输入
+            if(string("stdin").compare(pwdFileName) == 0){
+               cout << endl << "Please input password:";
+               cin >> pwd;
             }
 
             readPwd();
@@ -1051,20 +1057,14 @@ namespace com_levin_commons_plugins {
                 if (isPrintLog) {
                     cout << "Try load class " << name << endl;
                 }
-                //data = loadResource(env, loader, name, resPath.c_str(), false, len);
-            }
-
-
-            if (isHookPackage) {
-
-                //如果是hook包，尝试加载资源
                 data = loadResource(env, loader, name, resPath.c_str(), false, len);
-
             }else if (isHookClassReady) {
 
                 //如果是正常包，并且 HookClass 已经准备好
 
-                jclass newHookClass = loadClass(env, NULL, HOOK_CLASS);
+                 if(newHookClass == NULL){
+                    newHookClass = loadClass(env, NULL, HOOK_CLASS);
+                 }
 
                 if (isPrintLog) {
 //                    cout << "*** hookClassReady load class " << name << " , " << getExceptionInfo(env, true)
@@ -1074,6 +1074,7 @@ namespace com_levin_commons_plugins {
 
                 if (newHookClass == NULL) {
                     env->ExceptionClear();
+                    cerr << "Load class " << cName << endl;
                     return;
                 }
 
