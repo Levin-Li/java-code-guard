@@ -35,6 +35,9 @@ namespace com_levin_commons_plugins {
 
             //注册到 JNI
             registerNativeMethods(env);
+
+            cout << "*** SimpleLoaderAndTransformer(env:" << env << ") *** jni initialize " << endl;
+
         }
 
         jint SimpleLoaderAndTransformer::getEnvType(JNIEnv *env, jobject javaThis, jstring key) {

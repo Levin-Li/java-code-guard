@@ -12,7 +12,10 @@ jint envType = 0;
 
 bool isPrintLog = false;
 
-bool isInit = false;
+bool isAgentInit = false;
+
+ClassRegistry gClasses;
+SimpleLoaderAndTransformer jniInstance = NULL;
 ////////////////////////////////////////////////////////////////////////////////////
 void checkVMOptions(JavaVM *jvm, JNIEnv *env) {
 
@@ -41,11 +44,11 @@ void checkVMOptions(JavaVM *jvm, JNIEnv *env) {
 
 }
 
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved) {
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
 
-    LOG_INFO("Initializing JNI");
+    cout << "*** HookAgent(vm:" << vm << ") *** JNI_OnLoad " << JAVA_VERSION << endl;
 
-    JNIEnv *env = jniHelpersInitialize(jvm);
+    JNIEnv *env = jniHelpersInitialize(vm);
 
     if (env == NULL) {
         return -1;
@@ -55,30 +58,32 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved) {
         envType = JNI_MODE;
     }
 
-    ClassRegistry gClasses;
+    if(jniInstance == NULL){
 
-    gClasses.add(env, new SimpleLoaderAndTransformer(env));
+       jniInstance = new SimpleLoaderAndTransformer(env);
 
-    cout << "*** HookAgent *** JNI_OnLoad " << JAVA_VERSION << endl;
+       if(!jniInstance.isInitialized()){
+           jniInstance.initialize(env);
+       }
 
-    checkVMOptions(jvm, env);
-
-    LOG_INFO("Initialization complete");
+       gClasses.add(env, jniInstance);
+       checkVMOptions(vm, env);
+    }
 
     return JAVA_VERSION;
 }
 
 JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
-    printf("%s\n", "JNI_OnUnload");
+    cout << "*** HookAgent(vm:" << vm << ") *** JNI_OnUnload " << JAVA_VERSION << endl;
 }
 
 //////////////////////////// jvmit agent ///////////////////////////////////////
 
 JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
 
-    cout << "*** HookAgent(vm:" << vm << ") *** agent onLoad " << endl;
+    cout << "*** HookAgent(vm:" << vm << ") *** Agent_OnLoad" << endl;
 
-    if(isInit){
+    if(isAgentInit){
        return JNI_OK;
     }
 
@@ -100,7 +105,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
 
         agent->registerEvents();
 
-        isInit = true;
+        isAgentInit = true;
 
     } catch (AgentException &e) {
         cout << "Error when HookAgent registerEvents" << e.what() << " [" << e.ErrCode() << "]" << endl;
@@ -111,12 +116,12 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
 }
 
 JNIEXPORT jint JNICALL Agent_OnAttach(JavaVM *vm, char *options, void *reserved) {
-    printf("%s\n", "Agent_OnAttach");
+   cout << "*** HookAgent(vm:" << vm << ") *** Agent_OnAttach " << endl;
     return JNI_OK;
 }
 
 JNIEXPORT void JNICALL Agent_OnUnload(JavaVM *vm) {
-    printf("%s\n", "Agent_OnUnload");
+    cout << "*** HookAgent(vm:" << vm << ") *** Agent_OnUnload " << endl;
 }
 
 ///////////////////////////////////////////////////////////////////
