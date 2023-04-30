@@ -765,7 +765,8 @@ namespace com_levin_commons_plugins {
             trimAndRemoveWhiteSpace(pwd);
 
             if (pwd.empty()) {
-                cerr << "Pwd file " << current_working_directory() << "/" << pwdFileName << " not exist or invalid. " << endl;
+//                cerr << "Pwd file " << current_working_directory() << "/" << pwdFileName << " not exist or invalid. " << endl;
+                cerr << "Pwd "<< pwdFileName <<" not exist or invalid. " << endl;
                 pwd = "";
             }
 
